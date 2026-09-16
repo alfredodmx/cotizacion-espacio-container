@@ -753,6 +753,26 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-mf-row.ed-mf-deleted .ed-in{background:#f1f5f9;pointer-events:none;}
 .ed-mf-bool{display:flex;align-items:center;gap:9px;padding-top:9px;font-weight:600;color:#334155;font-size:0.9rem;cursor:pointer;}
 .ed-mf-bool input{width:18px;height:18px;accent-color:#2563eb;cursor:pointer;}
+/* Imágenes de planta y render (metacampos de imagen) */
+.ed-imgmeta-card{grid-column:1 / -1;}
+.ed-ims-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:820px){.ed-ims-grid{grid-template-columns:1fr;}}
+.ed-ims-lbl{font-size:0.72rem;font-weight:700;color:#475569;margin-bottom:7px;text-transform:uppercase;letter-spacing:.03em;}
+.ed-ims-box{position:relative;width:100%;height:210px;border:1.5px solid #e2e8f0;border-radius:12px;background:#f1f5f9;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.ed-ims-box img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;}
+.ed-ims-empty{color:#94a3b8;font-size:0.82rem;font-weight:600;}
+.ed-ims-badge{position:absolute;top:8px;left:8px;background:#4f46e5;color:#fff;font-family:Montserrat,sans-serif;
+  font-weight:800;font-size:8px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px;}
+.ed-ims-hint{font-size:0.72rem;color:#94a3b8;margin:7px 0 8px;}
+.ed-ims-acts{display:flex;gap:8px;}
+.ed-ims-pick,.ed-ims-clear{border-radius:9px;padding:9px 12px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
+  font-size:0.78rem;cursor:pointer;border:1.5px solid #e2e8f0;background:#fff;color:#0f172a;transition:all .15s;}
+.ed-ims-pick{background:#0f172a;color:#fff;border-color:#0f172a;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;}
+.ed-ims-pick:hover{background:#1e293b;}
+.ed-ims-clear{color:#dc2626;border-color:#fecaca;background:#fef2f2;}
+.ed-ims-clear:hover{background:#fee2e2;border-color:#fca5a5;}
+.ed-ims-pick svg{width:15px;height:15px;}
 .ed-pcx{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(15,23,42,.66);
   color:#fff;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;}
 .ed-pcx:hover{background:#dc2626;}
@@ -848,6 +868,11 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
     <div class="ed-lbl">Características / detalles</div>
     <div class="ed-mf-hint">Los detalles del producto (m², dormitorios, baños, clima, características, etc.). Complétalos; un campo que dejes vacío no se publica. La papelera vacía/elimina ese campo. Se guardan con «Guardar y publicar».</div>
     <div class="ed-mf-list">__METAFIELDS__</div>
+  </div>
+  <div class="ed-card ed-imgmeta-card" style="margin-top:16px;">
+    <div class="ed-lbl">Imágenes de planta y render</div>
+    <div class="ed-mf-hint">Imágenes adicionales del producto (planta y render). Se suben al pulsar «Guardar y publicar».</div>
+    <div class="ed-ims-grid">__IMGMETAS__</div>
   </div>
 </div>
 <script>
@@ -1100,7 +1125,8 @@ function fire(payload){
    lo quitas (o editas y vuelves atrás), el botón se DESACTIVA de nuevo. */
 var _initial=null;
 function collectStr(){ try{ return JSON.stringify(collect()); }catch(e){ return ''; } }
-function setDirty(){ try{ window.parent._swDirty=((_initial!==null && collectStr()!==_initial) || (typeof pcFiles!=='undefined' && pcFiles.length>0)); }catch(e){} }
+function imgMetaDirty(){ try{ return (imgMetaFiles&&Object.keys(imgMetaFiles).length>0)||(imgMetaRemove&&Object.keys(imgMetaRemove).length>0); }catch(e){ return false; } }
+function setDirty(){ try{ window.parent._swDirty=((_initial!==null && collectStr()!==_initial) || (typeof pcFiles!=='undefined' && pcFiles.length>0) || imgMetaDirty()); }catch(e){} }
 try{
   var _P=window.parent;
   _P._swDirty=false;                         // al cargar, sin cambios → botón deshabilitado
@@ -1123,6 +1149,18 @@ try{
         }
         payload.pc_files=photos; payload.pc_videos=videos;
       }
+      /* Metacampos de imagen (planta/render): subir los nuevos (base64) + marcar quitados. */
+      try{
+        var ims=[], imsRm=[];
+        if(typeof imgMetaFiles!=='undefined'){
+          for(var mk in imgMetaFiles){ var it2=imgMetaFiles[mk]; var mb=await fileB64(it2.file);
+            if(mb) ims.push({namespace:it2.ns, key:mk, name:it2.file.name, mime:(it2.file.type||'image/jpeg'), b64:mb}); }
+        }
+        if(typeof imgMetaRemove!=='undefined'){
+          for(var rk in imgMetaRemove){ imsRm.push({namespace:imgMetaRemove[rk].ns, key:rk}); }
+        }
+        payload.image_metas=ims; payload.image_metas_remove=imsRm;
+      }catch(e){}
       fire(JSON.stringify(payload));
     }catch(e){}
   };
@@ -1212,6 +1250,38 @@ addvidbtn.addEventListener('click',function(){ if(!this.disabled) addVid(); });
 addvidurl.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addVid(); }});
 syncVid();
 
+/* ── Metacampos de imagen (planta / render): elegir / previsualizar / quitar ──
+   Los archivos se leen a base64 y se suben al pulsar «Guardar y publicar» (via _swSave). */
+var imgMetaFiles={}, imgMetaRemove={};
+[].slice.call(doc.querySelectorAll('.ed-ims')).forEach(function(slot){
+  var key=slot.getAttribute('data-key'), ns=slot.getAttribute('data-ns');
+  var hadImg=slot.getAttribute('data-hasimg')==='1';
+  var fileIn=slot.querySelector('.ed-ims-file'), img=slot.querySelector('.ed-ims-img'),
+      empty=slot.querySelector('.ed-ims-empty'), badge=slot.querySelector('.ed-ims-badge'),
+      pick=slot.querySelector('.ed-ims-pick'), clr=slot.querySelector('.ed-ims-clear');
+  function hasShown(){ return (img && img.getAttribute('src')) || imgMetaFiles[key]; }
+  function refreshClear(){ if(clr) clr.style.display = hasShown() ? '' : 'none'; }
+  pick.addEventListener('click', function(){ fileIn.click(); });
+  fileIn.addEventListener('change', function(){
+    var f=this.files&&this.files[0]; if(!f) return;
+    imgMetaFiles[key]={file:f, ns:ns}; delete imgMetaRemove[key];
+    var url=URL.createObjectURL(f);
+    if(img){ img.setAttribute('src',url); img.style.display=''; }
+    if(empty) empty.style.display='none';
+    if(badge) badge.style.display='';
+    this.value=''; refreshClear(); setDirty();
+  });
+  if(clr) clr.addEventListener('click', function(){
+    delete imgMetaFiles[key];
+    if(hadImg) imgMetaRemove[key]={ns:ns};   // quitar el metacampo existente al guardar
+    if(img){ img.removeAttribute('src'); img.style.display='none'; }
+    if(empty) empty.style.display='';
+    if(badge) badge.style.display='none';
+    refreshClear(); setDirty();
+  });
+  refreshClear();
+});
+
 /* ── Auto-ajuste de la altura del iframe a su contenido (sin barra de scroll) ──
    Se mide el ALTO del wrapper #ed-root (offsetHeight = alto del contenido, NO depende
    del alto exterior del iframe) → así NO hay bucle de realimentación (que hacía crecer
@@ -1268,7 +1338,36 @@ def _mf_rows_html(editable):
     return _rows or '<div class="ed-info">No hay características definidas en la tienda.</div>'
 
 
-def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, videos=None):
+def _imgmeta_html(img_metas):
+    """Slots HTML de los metacampos de imagen (planta/render) para el formulario. Cada slot:
+    caja con la imagen actual (uniforme), botón para elegir/cambiar y botón para quitar."""
+    _cam = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            'stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 '
+            '2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>')
+    _out = ""
+    for m in (img_metas or []):
+        _url = _he(m.get("url") or "")
+        _has = "1" if _url else "0"
+        _imgstyle = "" if _url else "display:none;"
+        _emptystyle = "display:none;" if _url else ""
+        _clrstyle = "" if _url else "display:none;"
+        _out += (
+            f'<div class="ed-ims" data-ns="{_he(m.get("ns") or "custom")}" '
+            f'data-key="{_he(m.get("key"))}" data-hasimg="{_has}">'
+            f'<div class="ed-ims-lbl">{_he(m.get("label"))}</div>'
+            f'<div class="ed-ims-box"><img class="ed-ims-img" src="{_url}" alt="" style="{_imgstyle}">'
+            f'<div class="ed-ims-empty" style="{_emptystyle}">Sin imagen</div>'
+            '<span class="ed-ims-badge" style="display:none">Nueva</span></div>'
+            f'<div class="ed-ims-hint">{_he(m.get("hint") or "")}</div>'
+            f'<div class="ed-ims-acts"><button type="button" class="ed-ims-pick">{_cam}'
+            f'{"Cambiar imagen" if _url else "Subir imagen"}</button>'
+            f'<button type="button" class="ed-ims-clear" style="{_clrstyle}">Quitar</button>'
+            '<input type="file" class="ed-ims-file" accept="image/png,image/jpeg,image/webp" style="display:none">'
+            '</div></div>')
+    return _out or '<div class="ed-info">No hay metacampos de imagen configurados.</div>'
+
+
+def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, videos=None, img_metas=None):
     """Arma el formulario HTML del editor. `pubs`=canales [{id,name}], `prod_pubs`=set
     GIDs publicados, `cols`=colecciones [{id,title}], `cur_cols`=ids seleccionadas,
     `videos`=medios de video del producto (se muestran junto a las fotos).
@@ -1373,14 +1472,16 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, vide
              .replace("__TYPE__", _he(p.get("product_type") or ""))
              .replace("__VENDOR__", _he(p.get("vendor") or ""))
              .replace("__COLLECTIONS__", _collections)
-             .replace("__METAFIELDS__", _mf_rows_html(metafields)))
+             .replace("__METAFIELDS__", _mf_rows_html(metafields))
+             .replace("__IMGMETAS__", _imgmeta_html(img_metas)))
     # Altura estimada (izquierda vs derecha) + características (el iframe se auto-ajusta luego).
     _nmedia = len(_imgs) + len(_vids)
     _img_rows = (_nmedia + 3) // 4 if _nmedia else 1
     _left = 70 + (_img_rows * 118 + 90) + 300 + (max(1, len(_vars)) * 110 + 60)
     _right = 130 + (max(1, len(pubs or [])) * 44 + 60) + (200 + len(cols or []) * 34)
     _mf_h = 90 + len(metafields or []) * 78
-    _h = 70 + max(_left, _right) + _mf_h
+    _imgmeta_h = 360 if (img_metas is not None) else 0   # tarjeta de imágenes planta/render
+    _h = 70 + max(_left, _right) + _mf_h + _imgmeta_h
     return _html, _h
 
 
@@ -1582,6 +1683,32 @@ def _guardar_todo(pid, data: dict):
                                         _v.get("mime") or "video/mp4", _vb)
             if not _ok:
                 _errs.append(_e)
+    # 8) Metacampos de imagen (planta/render): subir la imagen a Files y apuntar el metacampo;
+    #    o quitar el metacampo si se marcó para eliminar.
+    for _im in data.get("image_metas") or []:
+        _b64i = _im.get("b64") or ""
+        if not _b64i:
+            continue
+        try:
+            _ib = base64.b64decode(_b64i)
+        except Exception:
+            _ib = b""
+        if not _ib:
+            continue
+        _gid, _pv, _e = _shop.subir_imagen_archivo(_im.get("name") or "imagen.jpg",
+                                                   _im.get("mime") or "image/jpeg", _ib)
+        if _e or not _gid:
+            _errs.append(_e or "No se pudo subir la imagen.")
+            continue
+        _ok, _e2 = _shop.set_metafield_referencia(pid, _im.get("namespace") or "custom",
+                                                  _im.get("key"), _gid)
+        if not _ok:
+            _errs.append(_e2)
+    for _rm in data.get("image_metas_remove") or []:
+        _ok, _e = _shop.borrar_metafield_por_clave(pid, _rm.get("namespace") or "custom",
+                                                   _rm.get("key"))
+        if not _ok:
+            _errs.append(_e)
     return _errs
 
 
@@ -2556,76 +2683,6 @@ _IMG_MFS = [
 ]
 
 
-def _render_img_metafields(pid, mf_by_nk):
-    """Sección nativa para subir/ver/quitar los metacampos de imagen (planta y render). Son
-    de tipo file_reference: se sube la imagen a Files y se apunta el metacampo a ese archivo."""
-    st.markdown(
-        f'<div style="display:flex;align-items:center;gap:8px;margin:18px 0 6px;font-family:Montserrat,'
-        f'sans-serif;font-weight:700;font-size:0.84rem;letter-spacing:0.05em;text-transform:uppercase;'
-        f'color:#0f172a;">{_ic("img", "#0f172a", 17, 0)}Imágenes de planta y render</div>',
-        unsafe_allow_html=True)
-    st.caption("Imágenes adicionales asociadas al producto (metacampos custom.imagen_planta y "
-               "custom.imagen_render). Se guardan al instante.")
-    # Resolver las imágenes actuales (GID → URL) para mostrarlas.
-    _cur = {}
-    _gids = []
-    for _ns, _key, *_ in _IMG_MFS:
-        _v = (mf_by_nk.get((_ns, _key)) or {}).get("value") or ""
-        _cur[(_ns, _key)] = _v
-        if _v and str(_v).startswith("gid://"):
-            _gids.append(_v)
-    _uk = f"sw_imgmf_urls_{pid}"
-    _urls = st.session_state.get(_uk)
-    if _urls is None:
-        _urls, _ = _shop.resolver_imagenes(_gids)
-        _urls = _urls or {}
-        st.session_state[_uk] = _urls
-    _cols = st.columns(len(_IMG_MFS))
-    for _i, (_ns, _key, _label, _hint) in enumerate(_IMG_MFS):
-        with _cols[_i]:
-            st.markdown(f"**{_label}**")
-            _v = _cur[(_ns, _key)]
-            _url = _urls.get(_v) if _v else ""
-            if _url:
-                st.image(_url, use_container_width=True)
-            elif _v:
-                st.info("Imagen asignada (procesándose o sin previsualización).", icon=":material/image:")
-            else:
-                st.markdown('<div style="border:1px dashed #cbd5e1;border-radius:10px;padding:22px;'
-                            'text-align:center;color:#94a3b8;font-size:0.8rem;">Sin imagen</div>',
-                            unsafe_allow_html=True)
-            st.caption(_hint)
-            _up = st.file_uploader(_label, type=["png", "jpg", "jpeg", "webp"],
-                                   key=f"sw_imgup_{pid}_{_key}", label_visibility="collapsed")
-            _b1, _b2 = st.columns(2)
-            with _b1:
-                if st.button("Guardar", key=f"sw_imgsave_{pid}_{_key}", disabled=_up is None,
-                             use_container_width=True, type="primary", icon=":material/cloud_upload:"):
-                    with st.spinner(f"Subiendo {_label}…"):
-                        _gid, _pv, _e = _shop.subir_imagen_archivo(_up.name, _up.type, _up.getvalue())
-                        if not _e:
-                            _ok, _e = _shop.set_metafield_referencia(pid, _ns, _key, _gid)
-                    if _e:
-                        st.error(_e, icon=":material/error:")
-                    else:
-                        st.session_state.pop("sw_edit_mf", None)
-                        st.session_state.pop(_uk, None)
-                        st.session_state["sw_toast"] = f"{_label} guardada."
-                        st.rerun()
-            with _b2:
-                if _v and st.button("Quitar", key=f"sw_imgdel_{pid}_{_key}", use_container_width=True,
-                                    icon=":material/delete:"):
-                    with st.spinner(f"Quitando {_label}…"):
-                        _ok, _e = _shop.borrar_metafield_por_clave(pid, _ns, _key)
-                    if _e:
-                        st.error(_e, icon=":material/error:")
-                    else:
-                        st.session_state.pop("sw_edit_mf", None)
-                        st.session_state.pop(_uk, None)
-                        st.session_state["sw_toast"] = f"{_label} quitada."
-                        st.rerun()
-
-
 def _preview_theme():
     """(id, nombre) del tema borrador elegido para previsualizar (por defecto el que contiene
     «NUEVA»). Devuelve (None, None) si no hay temas borrador. Cachea la lista en sesión."""
@@ -2790,6 +2847,22 @@ def _render_editor(pid):
             continue
         _mf_editable.append({**m, "name": _mf_label(m)})
 
+    # Metacampos de IMAGEN (planta/render): valores actuales (gid) + su URL para mostrarlos
+    # dentro del formulario. La resolución (GraphQL) se cachea por producto.
+    _img_gids = [(_mf_by_nk.get((_ns, _key)) or {}).get("value") for _ns, _key, *_ in _IMG_MFS]
+    _img_gids = [g for g in _img_gids if g and str(g).startswith("gid://")]
+    _iuk = f"sw_imgmf_urls_{pid}"
+    _iurls = st.session_state.get(_iuk)
+    if _iurls is None:
+        _iurls, _ = _shop.resolver_imagenes(_img_gids)
+        _iurls = _iurls or {}
+        st.session_state[_iuk] = _iurls
+    _img_metas = []
+    for _ns, _key, _label, _hint in _IMG_MFS:
+        _v = (_mf_by_nk.get((_ns, _key)) or {}).get("value") or ""
+        _img_metas.append({"ns": _ns, "key": _key, "label": _label, "hint": _hint,
+                           "gid": _v, "url": (_iurls.get(_v) if _v else "") or ""})
+
     # Puente de guardado (input oculto sw_savecmd; se auto-limpia tras procesar).
     if st.session_state.pop("_sw_reset_savecmd", False):
         st.session_state["sw_savecmd"] = ""
@@ -2847,6 +2920,7 @@ def _render_editor(pid):
                 st.session_state.pop("sw_edit_collects", None)
                 st.session_state.pop("sw_edit_prodpubs", None)
                 st.session_state.pop("sw_edit_mf", None)   # refrescar características
+                st.session_state.pop(f"sw_imgmf_urls_{pid}", None)  # refrescar imágenes planta/render
                 _cargar_productos.clear()
                 st.rerun()
 
@@ -2863,10 +2937,6 @@ def _render_editor(pid):
         st.session_state["sw_edit_vid_pid"] = str(pid)
 
     _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols,
-                                             metafields=_mf_editable, videos=_vid)
+                                             metafields=_mf_editable, videos=_vid, img_metas=_img_metas)
     components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
-
-    # Metacampos de imagen (planta / render): subida nativa, aparte del formulario HTML.
-    _render_img_metafields(pid, _mf_by_nk)
-
     components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
