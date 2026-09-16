@@ -2804,6 +2804,10 @@ def _render_editor(pid):
 
     if st.session_state.pop("sw_saved_ok", False):
         st.success("Cambios guardados y publicados en el sitio web.", icon=":material/check_circle:")
+    _serrs = st.session_state.pop("sw_save_errs", None)
+    if _serrs:
+        st.warning("Se guardó, pero algunos pasos tuvieron avisos:\n\n"
+                   + "\n\n".join(f"- {e}" for e in _serrs), icon=":material/warning:")
 
     _p = st.session_state.get("sw_edit_prod")
     if not _p or str(_p.get("id")) != str(pid):
@@ -2945,7 +2949,8 @@ def _render_editor(pid):
                     if _data.get("pc_videos") or _data.get("video_delete") or _data.get("new_ext_videos"):
                         st.session_state.pop("sw_edit_vid", None)   # refrescar galería de videos
                     if _errs:
-                        st.session_state["sw_toast"] = "Guardado con avisos: " + " · ".join(str(x) for x in _errs[:3])
+                        st.session_state["sw_toast"] = "Guardado con avisos (revisa el detalle arriba)."
+                        st.session_state["sw_save_errs"] = [str(x) for x in _errs]   # detalle completo
                     else:
                         st.session_state["sw_toast"] = "✅ Cambios guardados y publicados en el sitio web."
                         st.session_state["sw_saved_ok"] = True

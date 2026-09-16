@@ -800,10 +800,22 @@ def eliminar_media(pid, media_id) -> tuple:
     return True, None
 
 
+def _hint_files(msg) -> str:
+    """Si el error es por falta de permiso de archivos, agrega una guía clara en español."""
+    _m = str(msg or "").lower()
+    if "write_files" in _m or "create files" in _m or "write_images" in _m or "filecreate" in _m:
+        return (" — Falta el permiso para subir archivos. En tu app CUSTOM de Shopify: Admin → "
+                "Configuración → Apps y canales de venta → Desarrollar apps → tu app → "
+                "Configuración de API de Admin → agrega los scopes 'write_files' y 'read_files', "
+                "Guarda y REINSTALA/actualiza la app (aprobación del comerciante). Además tu usuario "
+                "debe tener permiso de 'Archivos'. Si al reinstalar cambia el token, actualiza SHOPIFY_TOKEN.")
+    return ""
+
+
 def subir_imagen_archivo(filename, mimetype, filebytes) -> tuple:
     """Sube una IMAGEN a Content > Files (staged upload IMAGE → fileCreate). Devuelve
     (gid, preview_url, error). El `gid` (gid://shopify/MediaImage/...) es el valor que espera
-    un metacampo de tipo `file_reference`. Requiere write_products/write_files."""
+    un metacampo de tipo `file_reference`. Requiere write_files (además de write_products)."""
     if not filebytes:
         return None, None, "El archivo de imagen está vacío."
     import requests
@@ -813,11 +825,12 @@ def subir_imagen_archivo(filename, mimetype, filebytes) -> tuple:
                "resource": "IMAGE", "fileSize": str(len(filebytes)), "httpMethod": "POST"}]
     data, err = _graphql(q1, {"input": _input})
     if err:
-        return None, None, err
+        return None, None, err + _hint_files(err)
     _res = (data or {}).get("stagedUploadsCreate") or {}
     _ue = _res.get("userErrors") or []
     if _ue:
-        return None, None, "; ".join(e.get("message", "") for e in _ue)
+        _msg = "; ".join(e.get("message", "") for e in _ue)
+        return None, None, _msg + _hint_files(_msg)
     _targets = _res.get("stagedTargets") or []
     if not _targets:
         return None, None, "Shopify no entregó un destino de subida para la imagen."
@@ -836,11 +849,12 @@ def subir_imagen_archivo(filename, mimetype, filebytes) -> tuple:
           "userErrors{ field message } } }")
     data2, err2 = _graphql(q2, {"files": [{"originalSource": _resource_url, "contentType": "IMAGE"}]})
     if err2:
-        return None, None, err2
+        return None, None, err2 + _hint_files(err2)
     _fc = (data2 or {}).get("fileCreate") or {}
     _errs = _fc.get("userErrors") or []
     if _errs:
-        return None, None, "; ".join(e.get("message", "") for e in _errs) or "No se pudo crear el archivo."
+        _msg = "; ".join(e.get("message", "") for e in _errs)
+        return None, None, (_msg or "No se pudo crear el archivo.") + _hint_files(_msg)
     _files = _fc.get("files") or []
     if not _files:
         return None, None, "Shopify no devolvió el archivo creado."
