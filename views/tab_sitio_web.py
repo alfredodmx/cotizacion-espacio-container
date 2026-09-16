@@ -26,6 +26,7 @@ _IC = {
     "money": '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
     "video": '<path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>',
     "house": '<path d="M3 21h18"/><path d="M5 21V8l7-4.5L19 8v13"/><path d="M9.5 21v-6h5v6"/><path d="M9.5 10.5h1.5M13 10.5h1.5"/>',
+    "draft": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h6"/><path d="M8 17h5"/>',
 }
 
 
@@ -1722,6 +1723,9 @@ def render_tab_sitio_web(**kwargs):
         'publica en la web real, con confirmación previa.</p></div>',
         unsafe_allow_html=True)
 
+    # ── Vista previa del tema borrador (los productos son compartidos entre temas) ──
+    _render_preview_borrador_bar()
+
     # ── Selector de vista: Tarjetas (por defecto) / Tabla / Ordenar web ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
     _vistas = ["Tarjetas", "Tabla", "Ordenar web", "Reels"]
@@ -2544,6 +2548,63 @@ def _render_reels():
             st.session_state.pop("sw_reel_edit_k", None)
 
 
+def _preview_theme():
+    """(id, nombre) del tema borrador elegido para previsualizar (por defecto el que contiene
+    «NUEVA»). Devuelve (None, None) si no hay temas borrador. Cachea la lista en sesión."""
+    _tid = st.session_state.get("sw_prev_theme_id")
+    if _tid:
+        return _tid, st.session_state.get("sw_prev_theme_name")
+    _temas = st.session_state.get("sw_temas")
+    if _temas is None:
+        _temas, _terr = _shop.listar_temas()
+        st.session_state["sw_temas"] = _temas or []
+        st.session_state["sw_temas_err"] = _terr
+    _drafts = [t for t in (_temas or [])
+               if str(t.get("role")) not in ("main", "demo", "archived")]
+    if not _drafts:
+        return None, None
+    _t = next((t for t in _drafts if "nueva" in str(t.get("name") or "").lower()), _drafts[0])
+    return _t.get("id"), _t.get("name")
+
+
+def _render_preview_borrador_bar():
+    """Barra para PREVISUALIZAR la tienda en un tema BORRADOR (p.ej. «Versión NUEVA») sin
+    publicarlo. Los productos son de la tienda (compartidos entre todos los temas), así que lo
+    que editas aquí YA aplica al borrador; esto solo te deja VERLO renderizado en ese tema."""
+    _temas = st.session_state.get("sw_temas")
+    if _temas is None:
+        _temas, _terr = _shop.listar_temas()
+        st.session_state["sw_temas"] = _temas or []
+        st.session_state["sw_temas_err"] = _terr
+    _drafts = [t for t in (_temas or [])
+               if str(t.get("role")) not in ("main", "demo", "archived")]
+    if not _drafts:
+        return
+    st.markdown(
+        '<div style="display:flex;gap:8px;align-items:flex-start;background:#fffbeb;'
+        'border:1px solid #fde68a;border-radius:10px;padding:10px 14px;margin:2px 0 12px;">'
+        f'{_ic("draft", "#b45309", 18, 0, 0)}'
+        '<p style="margin:0;font-size:0.82rem;color:#78350f;line-height:1.4;">'
+        '<b>Vista previa del tema borrador.</b> Tus productos son los mismos en todos los temas, '
+        'así que lo que subes/editas/eliminas aquí <b>ya aplica al borrador</b>. Usa este botón '
+        'para <b>verlos renderizados</b> en el tema borrador antes de publicarlo.</p></div>',
+        unsafe_allow_html=True)
+    _c1, _c2 = st.columns([3, 1.5], vertical_alignment="bottom")
+    with _c1:
+        _di = next((i for i, t in enumerate(_drafts)
+                    if "nueva" in str(t.get("name") or "").lower()), 0)
+        _sel = st.selectbox("Tema borrador", options=range(len(_drafts)), index=_di,
+                            format_func=lambda i: (_drafts[i].get("name") or f"Tema {_drafts[i].get('id')}"),
+                            key="sw_prev_sel", label_visibility="collapsed")
+    _t = _drafts[_sel]
+    st.session_state["sw_prev_theme_id"] = _t.get("id")
+    st.session_state["sw_prev_theme_name"] = _t.get("name")
+    with _c2:
+        _url = _shop.url_preview_tema(_t.get("id"))
+        st.link_button("Ver la tienda ↗", _url or "#", use_container_width=True,
+                       disabled=not _url, help="Abre la tienda con el tema borrador (requiere tu sesión de Shopify).")
+
+
 def _render_editor(pid):
     """Editor de UN producto: datos + precios + fotos. Escribe a Shopify con confirmación."""
     st.markdown("<style>.st-key-sw_ed_del button{background:#fef2f2!important;border:1px solid #fecaca!important;"
@@ -2584,6 +2645,15 @@ def _render_editor(pid):
             st.error(_err or "No se pudo cargar el producto.", icon=":material/error:")
             return
         st.session_state["sw_edit_prod"] = _p
+
+    # Enlace para VER este producto en el tema borrador (los productos son compartidos entre
+    # temas, así que estos cambios ya aplican al borrador; esto es solo para revisarlo).
+    _ptid, _ptname = _preview_theme()
+    if _ptid and _p.get("handle"):
+        _purl = _shop.url_preview_tema(_ptid, f"/products/{_p.get('handle')}")
+        if _purl:
+            st.link_button(f"Ver este producto en el borrador «{_ptname or ''}» ↗", _purl,
+                           help="Abre el producto renderizado con el tema borrador (requiere tu sesión de Shopify).")
 
     # ── Formulario del producto (HTML limpio, un solo guardado) ──
     # Canales (publicaciones)

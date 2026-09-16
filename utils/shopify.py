@@ -868,6 +868,19 @@ def tema_principal() -> tuple:
     return _m, (None if _m else "No se encontró el tema principal (publicado).")
 
 
+def url_preview_tema(theme_id, path: str = "") -> str:
+    """URL para VER la tienda (o una ruta, p.ej. '/products/<handle>') renderizada con un
+    tema concreto — sirve para previsualizar un tema BORRADOR sin publicarlo. Funciona para
+    el staff logueado en Shopify. Devuelve '' si faltan credenciales o theme_id."""
+    if not _store() or not theme_id:
+        return ""
+    _p = str(path or "")
+    if _p and not _p.startswith("/"):
+        _p = "/" + _p
+    _sep = "&" if "?" in _p else "?"
+    return f"https://{_store()}{_p}{_sep}preview_theme_id={theme_id}"
+
+
 def leer_asset(theme_id, key) -> tuple:
     """Lee el valor de un asset del tema (p.ej. 'config/settings_data.json'). Devuelve
     (value_str|None, error). 404 = no existe (no es error duro). DEFENSIVO."""
