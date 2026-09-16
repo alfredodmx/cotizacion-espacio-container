@@ -800,6 +800,111 @@ def eliminar_media(pid, media_id) -> tuple:
     return True, None
 
 
+def subir_imagen_archivo(filename, mimetype, filebytes) -> tuple:
+    """Sube una IMAGEN a Content > Files (staged upload IMAGE → fileCreate). Devuelve
+    (gid, preview_url, error). El `gid` (gid://shopify/MediaImage/...) es el valor que espera
+    un metacampo de tipo `file_reference`. Requiere write_products/write_files."""
+    if not filebytes:
+        return None, None, "El archivo de imagen está vacío."
+    import requests
+    q1 = ("mutation($input:[StagedUploadInput!]!){ stagedUploadsCreate(input:$input){ "
+          "stagedTargets{ url resourceUrl parameters{ name value } } userErrors{ field message } } }")
+    _input = [{"filename": filename or "imagen.jpg", "mimeType": mimetype or "image/jpeg",
+               "resource": "IMAGE", "fileSize": str(len(filebytes)), "httpMethod": "POST"}]
+    data, err = _graphql(q1, {"input": _input})
+    if err:
+        return None, None, err
+    _res = (data or {}).get("stagedUploadsCreate") or {}
+    _ue = _res.get("userErrors") or []
+    if _ue:
+        return None, None, "; ".join(e.get("message", "") for e in _ue)
+    _targets = _res.get("stagedTargets") or []
+    if not _targets:
+        return None, None, "Shopify no entregó un destino de subida para la imagen."
+    _t = _targets[0]
+    _url, _params, _resource_url = _t.get("url"), _t.get("parameters") or [], _t.get("resourceUrl")
+    try:
+        _form = [(p.get("name"), (None, p.get("value"))) for p in _params]
+        _form.append(("file", (filename or "imagen.jpg", filebytes, mimetype or "image/jpeg")))
+        r = requests.post(_url, files=_form, timeout=600)
+        if r.status_code not in (200, 201, 204):
+            return None, None, f"Subida al almacenamiento falló ({r.status_code}): {r.text[:150]}"
+    except Exception as e:
+        return None, None, f"Subida al almacenamiento: {e}"
+    q2 = ("mutation($files:[FileCreateInput!]!){ fileCreate(files:$files){ "
+          "files{ id fileStatus preview{ image{ url } } ... on MediaImage{ image{ url } } } "
+          "userErrors{ field message } } }")
+    data2, err2 = _graphql(q2, {"files": [{"originalSource": _resource_url, "contentType": "IMAGE"}]})
+    if err2:
+        return None, None, err2
+    _fc = (data2 or {}).get("fileCreate") or {}
+    _errs = _fc.get("userErrors") or []
+    if _errs:
+        return None, None, "; ".join(e.get("message", "") for e in _errs) or "No se pudo crear el archivo."
+    _files = _fc.get("files") or []
+    if not _files:
+        return None, None, "Shopify no devolvió el archivo creado."
+    _f = _files[0]
+    _pv = ((((_f.get("preview") or {}).get("image") or {}).get("url"))
+           or ((_f.get("image") or {}).get("url")) or "")
+    return _f.get("id"), _pv, None
+
+
+def set_metafield_referencia(pid, namespace, key, ref_gid, mtype="file_reference") -> tuple:
+    """Fija (crea o actualiza) un metacampo de referencia (p.ej. imagen file_reference) del
+    producto al recurso `ref_gid`. Usa metafieldsSet (idempotente por owner+namespace+key).
+    Devuelve (ok, error)."""
+    if not ref_gid:
+        return False, "Falta la referencia (gid) del archivo."
+    q = ("mutation($m:[MetafieldsSetInput!]!){ metafieldsSet(metafields:$m){ "
+         "metafields{ id } userErrors{ field message } } }")
+    _m = [{"ownerId": _gid_product(pid), "namespace": namespace, "key": key,
+           "type": mtype, "value": ref_gid}]
+    data, err = _graphql(q, {"m": _m})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("metafieldsSet") or {}).get("userErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo fijar el metacampo."
+    return True, None
+
+
+def borrar_metafield_por_clave(pid, namespace, key) -> tuple:
+    """Elimina un metacampo del producto por owner+namespace+key (GraphQL). Devuelve (ok, error)."""
+    q = ("mutation($m:[MetafieldIdentifierInput!]!){ metafieldsDelete(metafields:$m){ "
+         "deletedMetafields{ key } userErrors{ field message } } }")
+    _m = [{"ownerId": _gid_product(pid), "namespace": namespace, "key": key}]
+    data, err = _graphql(q, {"m": _m})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("metafieldsDelete") or {}).get("userErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo eliminar el metacampo."
+    return True, None
+
+
+def resolver_imagenes(gids) -> tuple:
+    """Dado un iterable de gids (MediaImage/GenericFile), devuelve ({gid: url}, error) para
+    mostrar la miniatura de metacampos de imagen. DEFENSIVO."""
+    _ids = [str(g) for g in (gids or []) if g and str(g).startswith("gid://")]
+    if not _ids:
+        return {}, None
+    q = ("query($ids:[ID!]!){ nodes(ids:$ids){ id __typename "
+         "... on MediaImage{ image{ url } preview{ image{ url } } } "
+         "... on GenericFile{ url preview{ image{ url } } } } }")
+    data, err = _graphql(q, {"ids": list(dict.fromkeys(_ids))})
+    if err:
+        return {}, err
+    out = {}
+    for n in ((data or {}).get("nodes") or []):
+        if not n:
+            continue
+        out[n.get("id")] = ((((n.get("image") or {}).get("url"))
+                             or (((n.get("preview") or {}).get("image") or {}).get("url"))
+                             or n.get("url") or ""))
+    return out, None
+
+
 # ── Tema / REELS (Asset API — requiere read_themes / write_themes) ────────────
 
 def _scope_hint_themes(code) -> str:

@@ -2548,6 +2548,84 @@ def _render_reels():
             st.session_state.pop("sw_reel_edit_k", None)
 
 
+# Metacampos de IMAGEN del producto (file_reference) que se editan aparte del formulario
+# HTML, con subida nativa. (namespace, key, etiqueta, ayuda)
+_IMG_MFS = [
+    ("custom", "imagen_planta", "Imagen de planta", "El plano / planta del modelo."),
+    ("custom", "imagen_render", "Imagen de render", "El render 3D del modelo."),
+]
+
+
+def _render_img_metafields(pid, mf_by_nk):
+    """Sección nativa para subir/ver/quitar los metacampos de imagen (planta y render). Son
+    de tipo file_reference: se sube la imagen a Files y se apunta el metacampo a ese archivo."""
+    st.markdown(
+        f'<div style="display:flex;align-items:center;gap:8px;margin:18px 0 6px;font-family:Montserrat,'
+        f'sans-serif;font-weight:700;font-size:0.84rem;letter-spacing:0.05em;text-transform:uppercase;'
+        f'color:#0f172a;">{_ic("img", "#0f172a", 17, 0)}Imágenes de planta y render</div>',
+        unsafe_allow_html=True)
+    st.caption("Imágenes adicionales asociadas al producto (metacampos custom.imagen_planta y "
+               "custom.imagen_render). Se guardan al instante.")
+    # Resolver las imágenes actuales (GID → URL) para mostrarlas.
+    _cur = {}
+    _gids = []
+    for _ns, _key, *_ in _IMG_MFS:
+        _v = (mf_by_nk.get((_ns, _key)) or {}).get("value") or ""
+        _cur[(_ns, _key)] = _v
+        if _v and str(_v).startswith("gid://"):
+            _gids.append(_v)
+    _uk = f"sw_imgmf_urls_{pid}"
+    _urls = st.session_state.get(_uk)
+    if _urls is None:
+        _urls, _ = _shop.resolver_imagenes(_gids)
+        _urls = _urls or {}
+        st.session_state[_uk] = _urls
+    _cols = st.columns(len(_IMG_MFS))
+    for _i, (_ns, _key, _label, _hint) in enumerate(_IMG_MFS):
+        with _cols[_i]:
+            st.markdown(f"**{_label}**")
+            _v = _cur[(_ns, _key)]
+            _url = _urls.get(_v) if _v else ""
+            if _url:
+                st.image(_url, use_container_width=True)
+            elif _v:
+                st.info("Imagen asignada (procesándose o sin previsualización).", icon=":material/image:")
+            else:
+                st.markdown('<div style="border:1px dashed #cbd5e1;border-radius:10px;padding:22px;'
+                            'text-align:center;color:#94a3b8;font-size:0.8rem;">Sin imagen</div>',
+                            unsafe_allow_html=True)
+            st.caption(_hint)
+            _up = st.file_uploader(_label, type=["png", "jpg", "jpeg", "webp"],
+                                   key=f"sw_imgup_{pid}_{_key}", label_visibility="collapsed")
+            _b1, _b2 = st.columns(2)
+            with _b1:
+                if st.button("Guardar", key=f"sw_imgsave_{pid}_{_key}", disabled=_up is None,
+                             use_container_width=True, type="primary", icon=":material/cloud_upload:"):
+                    with st.spinner(f"Subiendo {_label}…"):
+                        _gid, _pv, _e = _shop.subir_imagen_archivo(_up.name, _up.type, _up.getvalue())
+                        if not _e:
+                            _ok, _e = _shop.set_metafield_referencia(pid, _ns, _key, _gid)
+                    if _e:
+                        st.error(_e, icon=":material/error:")
+                    else:
+                        st.session_state.pop("sw_edit_mf", None)
+                        st.session_state.pop(_uk, None)
+                        st.session_state["sw_toast"] = f"{_label} guardada."
+                        st.rerun()
+            with _b2:
+                if _v and st.button("Quitar", key=f"sw_imgdel_{pid}_{_key}", use_container_width=True,
+                                    icon=":material/delete:"):
+                    with st.spinner(f"Quitando {_label}…"):
+                        _ok, _e = _shop.borrar_metafield_por_clave(pid, _ns, _key)
+                    if _e:
+                        st.error(_e, icon=":material/error:")
+                    else:
+                        st.session_state.pop("sw_edit_mf", None)
+                        st.session_state.pop(_uk, None)
+                        st.session_state["sw_toast"] = f"{_label} quitada."
+                        st.rerun()
+
+
 def _preview_theme():
     """(id, nombre) del tema borrador elegido para previsualizar (por defecto el que contiene
     «NUEVA»). Devuelve (None, None) si no hay temas borrador. Cachea la lista en sesión."""
@@ -2787,4 +2865,8 @@ def _render_editor(pid):
     _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols,
                                              metafields=_mf_editable, videos=_vid)
     components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
+
+    # Metacampos de imagen (planta / render): subida nativa, aparte del formulario HTML.
+    _render_img_metafields(pid, _mf_by_nk)
+
     components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
