@@ -634,6 +634,7 @@ _SW_FORM_TEMPLATE = r"""<!DOCTYPE html>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:transparent;color:#0f172a;}
+#ed-root{padding-bottom:78px;}   /* aire para que el botón flotante Guardar y publicar no tape la última tarjeta */
 .ed-head{display:flex;align-items:center;gap:14px;justify-content:space-between;margin:0 0 14px;flex-wrap:wrap;}
 .ed-title-mini{font-family:'Plus Jakarta Sans';font-weight:800;font-size:1.05rem;color:#0f172a;min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
@@ -763,15 +764,20 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-ims-box img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;}
 .ed-ims-empty{color:#94a3b8;font-size:0.82rem;font-weight:600;}
 .ed-ims-badge{position:absolute;top:8px;left:8px;background:#4f46e5;color:#fff;font-family:Montserrat,sans-serif;
-  font-weight:800;font-size:8px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px;}
+  font-weight:800;font-size:8px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px;z-index:2;}
+/* Botones sobre la imagen (arriba-derecha): ampliar + quitar */
+.ed-ims-ov{position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:3;}
+.ed-ims-ov button{width:31px;height:31px;border-radius:9px;border:none;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;background:rgba(15,23,42,.60);color:#fff;transition:background .15s;padding:0;}
+.ed-ims-ov button svg{width:16px;height:16px;}
+.ed-ims-zoom:hover{background:rgba(15,23,42,.85);}
+.ed-ims-clear:hover{background:#dc2626;}
 .ed-ims-hint{font-size:0.72rem;color:#94a3b8;margin:7px 0 8px;}
 .ed-ims-acts{display:flex;gap:8px;}
-.ed-ims-pick,.ed-ims-clear{border-radius:9px;padding:9px 12px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
-  font-size:0.78rem;cursor:pointer;border:1.5px solid #e2e8f0;background:#fff;color:#0f172a;transition:all .15s;}
-.ed-ims-pick{background:#0f172a;color:#fff;border-color:#0f172a;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;}
+.ed-ims-pick{border-radius:9px;padding:10px 12px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;
+  font-size:0.8rem;cursor:pointer;border:1.5px solid #0f172a;background:#0f172a;color:#fff;transition:all .15s;
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;}
 .ed-ims-pick:hover{background:#1e293b;}
-.ed-ims-clear{color:#dc2626;border-color:#fecaca;background:#fef2f2;}
-.ed-ims-clear:hover{background:#fee2e2;border-color:#fca5a5;}
 .ed-ims-pick svg{width:15px;height:15px;}
 .ed-pcx{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(15,23,42,.66);
   color:#fff;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;}
@@ -1250,18 +1256,37 @@ addvidbtn.addEventListener('click',function(){ if(!this.disabled) addVid(); });
 addvidurl.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); addVid(); }});
 syncVid();
 
-/* ── Metacampos de imagen (planta / render): elegir / previsualizar / quitar ──
+/* ── Metacampos de imagen (planta / render): elegir / ampliar / quitar ──
    Los archivos se leen a base64 y se suben al pulsar «Guardar y publicar» (via _swSave). */
 var imgMetaFiles={}, imgMetaRemove={};
+function openImgFs(url){    // visor fullscreen de UNA imagen, montado en el doc padre
+  if(!url) return; var PD=_swPD();
+  var old=PD.getElementById('sw-imgfs'); if(old) old.remove();
+  var prevOv=PD.body.style.overflow; PD.body.style.overflow='hidden';
+  var ov=PD.createElement('div'); ov.id='sw-imgfs';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(6,11,22,.94);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;';
+  ov.innerHTML='<button class="_cl" title="Cerrar" style="position:absolute;top:16px;right:18px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff;cursor:pointer;font-size:22px;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>'
+    +'<img src="'+(url+'').replace(/"/g,'&quot;')+'" style="max-width:94vw;max-height:90vh;object-fit:contain;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5);">';
+  PD.body.appendChild(ov);
+  function close(){ if(ov.parentNode) ov.parentNode.removeChild(ov); PD.body.style.overflow=prevOv||''; PD.removeEventListener('keydown',onKey); }
+  function onKey(e){ if(e.key==='Escape') close(); }
+  ov.addEventListener('click', function(e){ if(e.target===ov) close(); });
+  ov.querySelector('._cl').addEventListener('click', close);
+  PD.addEventListener('keydown', onKey);
+}
 [].slice.call(doc.querySelectorAll('.ed-ims')).forEach(function(slot){
   var key=slot.getAttribute('data-key'), ns=slot.getAttribute('data-ns');
   var hadImg=slot.getAttribute('data-hasimg')==='1';
   var fileIn=slot.querySelector('.ed-ims-file'), img=slot.querySelector('.ed-ims-img'),
       empty=slot.querySelector('.ed-ims-empty'), badge=slot.querySelector('.ed-ims-badge'),
-      pick=slot.querySelector('.ed-ims-pick'), clr=slot.querySelector('.ed-ims-clear');
-  function hasShown(){ return (img && img.getAttribute('src')) || imgMetaFiles[key]; }
-  function refreshClear(){ if(clr) clr.style.display = hasShown() ? '' : 'none'; }
+      ov=slot.querySelector('.ed-ims-ov'), zoom=slot.querySelector('.ed-ims-zoom'),
+      clr=slot.querySelector('.ed-ims-clear'), pick=slot.querySelector('.ed-ims-pick'),
+      picktxt=slot.querySelector('.ed-ims-picktxt');
+  function curUrl(){ return img && img.getAttribute('src'); }
+  function hasShown(){ return curUrl() || imgMetaFiles[key]; }
+  function refresh(){ if(ov) ov.style.display=hasShown()?'':'none'; if(picktxt) picktxt.textContent=hasShown()?'Cambiar imagen':'Subir imagen'; }
   pick.addEventListener('click', function(){ fileIn.click(); });
+  if(zoom) zoom.addEventListener('click', function(){ openImgFs(curUrl()); });
   fileIn.addEventListener('change', function(){
     var f=this.files&&this.files[0]; if(!f) return;
     imgMetaFiles[key]={file:f, ns:ns}; delete imgMetaRemove[key];
@@ -1269,7 +1294,7 @@ var imgMetaFiles={}, imgMetaRemove={};
     if(img){ img.setAttribute('src',url); img.style.display=''; }
     if(empty) empty.style.display='none';
     if(badge) badge.style.display='';
-    this.value=''; refreshClear(); setDirty();
+    this.value=''; refresh(); setDirty();
   });
   if(clr) clr.addEventListener('click', function(){
     delete imgMetaFiles[key];
@@ -1277,9 +1302,9 @@ var imgMetaFiles={}, imgMetaRemove={};
     if(img){ img.removeAttribute('src'); img.style.display='none'; }
     if(empty) empty.style.display='';
     if(badge) badge.style.display='none';
-    refreshClear(); setDirty();
+    refresh(); setDirty();
   });
-  refreshClear();
+  refresh();
 });
 
 /* ── Auto-ajuste de la altura del iframe a su contenido (sin barra de scroll) ──
@@ -1344,24 +1369,32 @@ def _imgmeta_html(img_metas):
     _cam = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
             'stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 '
             '2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>')
+    _zoom = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+             'stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/>'
+             '<path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>')
+    _x = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" '
+          'stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>')
     _out = ""
     for m in (img_metas or []):
         _url = _he(m.get("url") or "")
         _has = "1" if _url else "0"
         _imgstyle = "" if _url else "display:none;"
         _emptystyle = "display:none;" if _url else ""
-        _clrstyle = "" if _url else "display:none;"
+        _ovstyle = "" if _url else "display:none;"
         _out += (
             f'<div class="ed-ims" data-ns="{_he(m.get("ns") or "custom")}" '
             f'data-key="{_he(m.get("key"))}" data-hasimg="{_has}">'
             f'<div class="ed-ims-lbl">{_he(m.get("label"))}</div>'
             f'<div class="ed-ims-box"><img class="ed-ims-img" src="{_url}" alt="" style="{_imgstyle}">'
             f'<div class="ed-ims-empty" style="{_emptystyle}">Sin imagen</div>'
-            '<span class="ed-ims-badge" style="display:none">Nueva</span></div>'
+            '<span class="ed-ims-badge" style="display:none">Nueva</span>'
+            f'<div class="ed-ims-ov" style="{_ovstyle}">'
+            f'<button type="button" class="ed-ims-zoom" title="Ampliar">{_zoom}</button>'
+            f'<button type="button" class="ed-ims-clear" title="Quitar imagen">{_x}</button>'
+            '</div></div>'
             f'<div class="ed-ims-hint">{_he(m.get("hint") or "")}</div>'
             f'<div class="ed-ims-acts"><button type="button" class="ed-ims-pick">{_cam}'
-            f'{"Cambiar imagen" if _url else "Subir imagen"}</button>'
-            f'<button type="button" class="ed-ims-clear" style="{_clrstyle}">Quitar</button>'
+            f'<span class="ed-ims-picktxt">{"Cambiar imagen" if _url else "Subir imagen"}</span></button>'
             '<input type="file" class="ed-ims-file" accept="image/png,image/jpeg,image/webp" style="display:none">'
             '</div></div>')
     return _out or '<div class="ed-info">No hay metacampos de imagen configurados.</div>'
@@ -2678,8 +2711,8 @@ def _render_reels():
 # Metacampos de IMAGEN del producto (file_reference) que se editan aparte del formulario
 # HTML, con subida nativa. (namespace, key, etiqueta, ayuda)
 _IMG_MFS = [
-    ("custom", "imagen_planta", "Imagen de planta", "El plano / planta del modelo."),
     ("custom", "imagen_render", "Imagen de render", "El render 3D del modelo."),
+    ("custom", "imagen_planta", "Imagen de planta", "El plano / planta del modelo."),
 ]
 
 
