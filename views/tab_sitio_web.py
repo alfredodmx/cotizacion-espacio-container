@@ -10,6 +10,7 @@ Requiere que el token de Shopify tenga `write_products` (además de `read_produc
 Todo DEFENSIVO: si faltan credenciales o el token no tiene permisos, avisa claro.
 """
 import base64
+import uuid as _uuid
 import streamlit as st
 import streamlit.components.v1 as components
 from views.layout import render_page_header
@@ -2205,10 +2206,105 @@ _SW_REELS_CSS = """<style>
 </style>"""
 
 
+def _reels_clear_state():
+    for _k in ("sw_reels", "sw_reels_err", "sw_reels_vids", "sw_reels_work",
+               "sw_reels_workkey", "sw_reels_base", "sw_reels_files", "sw_reels_prods",
+               "sw_reel_edit_k"):
+        st.session_state.pop(_k, None)
+
+
+def _reels_norm(_work):
+    """Firma comparable (para detectar cambios) de la lista de reels."""
+    return [(str(r.get("video") or ""), str(r.get("caption") or ""),
+             str(r.get("linked_product") or ""), str(r.get("advisor_name") or "")) for r in _work]
+
+
+@st.dialog("Editar reel", width="large")
+def _reel_edit_dialog(_row, _prod_opts, _files, _adv_names):
+    """Edita un reel de la copia de trabajo: ejecutivo, descripción, producto y video."""
+    _k = _row.get("_k")
+    st.caption("Los cambios se aplican al guardar la sección completa (con respaldo).")
+    # Vista previa actual
+    _c1, _c2 = st.columns([1, 2.4])
+    with _c1:
+        if _row.get("_pv"):
+            st.image(_row["_pv"], use_container_width=True)
+        else:
+            st.markdown('<div style="aspect-ratio:9/16;background:#0f172a;border-radius:10px;'
+                        'display:flex;align-items:center;justify-content:center;color:#94a3b8;'
+                        'font-size:.7rem;">sin miniatura</div>', unsafe_allow_html=True)
+    with _c2:
+        # Ejecutivo / asesor
+        _cur_adv = str(_row.get("advisor_name") or "")
+        _adv_list = sorted({n for n in _adv_names if n} | ({_cur_adv} if _cur_adv else set()))
+        _opts = ["(sin asignar)"] + _adv_list + ["✏️ Escribir otro…"]
+        _idx = _opts.index(_cur_adv) if _cur_adv in _adv_list else (0 if not _cur_adv else 0)
+        _sel = st.selectbox("Ejecutivo (asesor)", _opts, index=_idx, key=f"sw_re_adv_{_k}")
+        if _sel == "✏️ Escribir otro…":
+            _adv_val = st.text_input("Nombre del ejecutivo", value=_cur_adv, key=f"sw_re_advt_{_k}",
+                                     placeholder="Ej: Andrea Osorio")
+        elif _sel == "(sin asignar)":
+            _adv_val = ""
+        else:
+            _adv_val = _sel
+        st.caption("Debe coincidir con el nombre del asesor en la sección para que el filtro de la web funcione.")
+        # Descripción
+        _cap_val = st.text_area("Descripción (caption)", value=str(_row.get("caption") or ""),
+                                key=f"sw_re_cap_{_k}", height=80)
+        # Producto vinculado
+        _pids = [o[0] for o in _prod_opts]
+        _cur_pid = str(_row.get("linked_product") or "")
+        _pidx = _pids.index(_cur_pid) if _cur_pid in _pids else 0
+        _psel = st.selectbox("Producto vinculado", options=range(len(_prod_opts)), index=_pidx,
+                             format_func=lambda i: _prod_opts[i][1], key=f"sw_re_prod_{_k}")
+        _prod_val = _prod_opts[_psel][0]
+    # Video
+    st.markdown("**Video**")
+    _cur_fn = _reel_video_filename(_row.get("video"))
+    _fopts = ["(mantener el actual)"] + [f["filename"] for f in _files]
+    _vsel = st.selectbox(f"Actual: {_cur_fn or '—'}", _fopts, index=0, key=f"sw_re_vid_{_k}")
+    if not _files:
+        st.caption("No se encontraron videos en Content › Files. Sube el video en Shopify → "
+                   "Contenido → Archivos y luego elígelo aquí.")
+    _c1, _c2 = st.columns([1, 1])
+    with _c1:
+        if st.button("Cancelar", key=f"sw_re_cancel_{_k}", use_container_width=True):
+            st.session_state.pop("sw_reel_edit_k", None)
+            st.rerun()
+    with _c2:
+        if st.button("Aplicar", key=f"sw_re_apply_{_k}", type="primary", use_container_width=True,
+                     icon=":material/check:"):
+            _row["advisor_name"] = _adv_val
+            _row["caption"] = _cap_val
+            _row["linked_product"] = _prod_val
+            if _vsel != "(mantener el actual)":
+                _f = next((f for f in _files if f["filename"] == _vsel), None)
+                if _f:
+                    _row["video"] = _f["ref"]
+                    _row["_pv"] = _f.get("preview_url") or ""
+                    _row["_src"] = _f.get("src") or ""
+            st.session_state.pop("sw_reel_edit_k", None)
+            st.rerun()
+
+
+def _reel_video_filename(_v):
+    """Nombre de archivo legible de un valor de campo 'video'."""
+    _s = str(_v or "")
+    if "/videos/" in _s:
+        _s = _s.split("/videos/", 1)[-1]
+    elif "/" in _s:
+        _s = _s.rsplit("/", 1)[-1]
+    try:
+        from urllib.parse import unquote
+        return unquote(_s)
+    except Exception:
+        return _s
+
+
 def _render_reels():
-    """FASE 1 (solo lectura): muestra los reels de la sección de Shopify (bloques del tema)
-    — video + asesor + producto + caption. La EDICIÓN (Fase 2) se agrega después de validar
-    que se leen bien (formato del video / ubicación de la sección)."""
+    """FASE 2: muestra y EDITA los reels de la sección de Shopify (bloques del tema) — video,
+    ejecutivo (asesor), descripción y producto vinculado — más agregar, eliminar y reordenar.
+    Escribe el asset del tema con respaldo automático y confirmación."""
     st.markdown(_SW_REELS_CSS, unsafe_allow_html=True)
     _h1, _h2 = st.columns([5, 1.3], vertical_alignment="bottom")
     with _h1:
@@ -2217,11 +2313,14 @@ def _render_reels():
     with _h2:
         if st.button("Actualizar", icon=":material/refresh:", key="sw_reels_refresh",
                      use_container_width=True):
-            for _k in ("sw_reels", "sw_reels_err", "sw_reels_vids"):
-                st.session_state.pop(_k, None)
+            _reels_clear_state()
             st.rerun()
-    st.caption("Videos verticales de la sección «Reels por asesor» de tu web (bloques del tema). "
-               "Por ahora se muestran para revisarlos; la edición desde aquí viene enseguida.")
+    st.caption("Videos verticales de la sección «Reels por asesor» de tu web. Edita cada reel: "
+               "qué ejecutivo, descripción, producto y video; o agrégalos, reordénalos y elimínalos.")
+
+    if st.session_state.pop("sw_reels_saved", False):
+        st.success("Reels guardados en el tema. Cuando publiques ese tema, pasan a producción.",
+                   icon=":material/check_circle:")
 
     _info = st.session_state.get("sw_reels")
     if _info is None:
@@ -2234,17 +2333,30 @@ def _render_reels():
                    or "No se encontró la sección de reels en el tema publicado.")
         return
 
-    _vids = st.session_state.get("sw_reels_vids")
-    if _vids is None:
+    _advisors = _info.get("advisors", [])
+    # Copia de trabajo (editable) — se reconstruye si cambió la sección/tema.
+    _sig = f"{_info.get('theme_id')}|{_info.get('asset_key')}|{_info.get('section_id')}"
+    if st.session_state.get("sw_reels_workkey") != _sig:
         _ids = ([r.get("video") for r in _info.get("reels", [])]
-                + [a.get("video") for a in _info.get("advisors", [])])
+                + [a.get("video") for a in _advisors])
         with st.spinner("Cargando miniaturas de los videos…"):
             _vids, _ = _shop.resolver_videos(_ids)
-        st.session_state["sw_reels_vids"] = _vids or {}
-    _vids = _vids or {}
+        _vids = _vids or {}
+        _work = []
+        for _r in _info.get("reels", []):
+            _rv = _vids.get(str(_r.get("video"))) or {}
+            _work.append({"_k": _uuid.uuid4().hex[:8], "id": _r.get("id"),
+                          "video": _r.get("video"), "caption": _r.get("caption") or "",
+                          "linked_product": str(_r.get("linked_product") or ""),
+                          "advisor_name": _r.get("advisor_name") or "",
+                          "_pv": _rv.get("preview_url") or "", "_src": _rv.get("src") or ""})
+        st.session_state["sw_reels_work"] = _work
+        st.session_state["sw_reels_base"] = _reels_norm(_work)
+        st.session_state["sw_reels_vids"] = _vids
+        st.session_state["sw_reels_workkey"] = _sig
+    _work = st.session_state["sw_reels_work"]
+    _vids = st.session_state.get("sw_reels_vids") or {}
 
-    _reels = _info.get("reels", [])
-    _advisors = _info.get("advisors", [])
     _es_borrador = str(_info.get("theme_role") or "") != "main"
     if _es_borrador:
         st.info(f"Estos reels están en una **versión BORRADOR** de tu tema: "
@@ -2256,7 +2368,7 @@ def _render_reels():
     st.markdown(f'<div class="sw-reels-meta">Tema: <b>{_he(_info.get("theme_name"))}</b> '
                 f'<span class="sw-reels-badge {"is-draft" if _es_borrador else "is-live"}">'
                 f'{_rol_txt}</span> · sección <code>{_he(_info.get("section_type"))}</code> · '
-                f'{len(_reels)} reel(s) · {len(_advisors)} asesor(es)</div>', unsafe_allow_html=True)
+                f'{len(_work)} reel(s) · {len(_advisors)} asesor(es)</div>', unsafe_allow_html=True)
 
     if _advisors:
         st.markdown('<div class="sw-reels-h">Asesores</div>', unsafe_allow_html=True)
@@ -2271,17 +2383,14 @@ def _render_reels():
                             + (f'<div class="sw-reel-avr">{_he(_a.get("role"))}</div>'
                                if _a.get("role") else ""), unsafe_allow_html=True)
 
-    st.markdown('<div class="sw-reels-h">Videos</div>', unsafe_allow_html=True)
-    if not _reels:
-        st.info("La sección no tiene bloques de reel todavía.")
+    # ── Vista previa reproducible (fila horizontal) ──
+    st.markdown('<div class="sw-reels-h">Vista previa</div>', unsafe_allow_html=True)
+    if not _work:
+        st.info("La sección no tiene reels todavía. Usa «Agregar reel» para crear el primero.")
     else:
-        # Fila ÚNICA horizontal (scroll) de tiles chicos 9:16 REPRODUCIBLES: cada uno es un
-        # <video> con póster (miniatura) que se reproduce al pulsar play, dentro de un iframe
-        # para que <video> no lo filtre Streamlit.
         _items = ""
-        for _r in _reels:
-            _rv = _vids.get(str(_r.get("video"))) or {}
-            _src, _pv = _rv.get("src", ""), _rv.get("preview_url", "")
+        for _r in _work:
+            _src, _pv = _r.get("_src", ""), _r.get("_pv", "")
             _tag = (f'<div class="tag">{_he(_r.get("advisor_name"))}</div>'
                     if _r.get("advisor_name") else "")
             _cap = (f'<div class="cap">{_he(_r.get("caption"))}</div>'
@@ -2293,7 +2402,7 @@ def _render_reels():
             elif _pv:
                 _media = f'<div class="v v--img" style="background-image:url(\'{_he(_pv)}\')"></div>'
             else:
-                _media = '<div class="v v--ph">VIDEO<br><small>no encontrado</small></div>'
+                _media = '<div class="v v--ph">VIDEO<br><small>sin video</small></div>'
             _items += f'<div class="rl">{_media}{_tag}{_cap}</div>'
         _html = f"""<!doctype html><html><head><meta charset="utf-8"><style>
         *{{box-sizing:border-box;}} body{{margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;}}
@@ -2313,14 +2422,126 @@ def _render_reels():
         </style></head><body><div class="row">{_items}</div></body></html>"""
         components.html(_html, height=330, scrolling=False)
 
-    # Diagnóstico: si NINGÚN video resolvió a reproducción, mostrar la estructura cruda del
-    # bloque para ver el formato exacto del campo 'video' y ajustar la resolución.
-    _any = any((_vids.get(str(r.get("video"))) or {}).get("src")
-               or (_vids.get(str(r.get("video"))) or {}).get("preview_url") for r in _reels)
-    if _reels and not _any:
-        with st.expander("Diagnóstico — no se resolvió ningún video (ver estructura)"):
-            st.caption(f"Valor del campo 'video' del primer reel: {_reels[0].get('video')!r}")
-            st.json(_info.get("raw_reel") or {})
+    # ── Edición ──
+    st.markdown('<div class="sw-reels-h">Editar reels</div>', unsafe_allow_html=True)
+    # Datos auxiliares (cacheados): productos (para vincular) y videos de Files (para el picker).
+    _prods = st.session_state.get("sw_reels_prods")
+    if _prods is None:
+        _pl, _ = _shop.listar_productos(status="")
+        _prods = _pl or []
+        st.session_state["sw_reels_prods"] = _prods
+    _prod_opts = [("", "(ninguno)")] + [(str(p.get("id")), (p.get("title") or f"#{p.get('id')}"))
+                                        for p in _prods]
+    _prod_map = {o[0]: o[1] for o in _prod_opts}
+    _files = st.session_state.get("sw_reels_files")
+    if _files is None:
+        _files, _ = _shop.listar_videos_files()
+        _files = _files or []
+        st.session_state["sw_reels_files"] = _files
+    _adv_names = ([a.get("name") for a in _advisors if a.get("name")]
+                  + [r.get("advisor_name") for r in _work if r.get("advisor_name")])
+
+    _tb1, _tb2, _tb3 = st.columns([1.4, 4, 1.9])
+    with _tb1:
+        if st.button("Agregar reel", key="sw_reels_add", icon=":material/add:",
+                     use_container_width=True):
+            _work.append({"_k": _uuid.uuid4().hex[:8], "id": None, "video": "", "caption": "",
+                          "linked_product": "", "advisor_name": "", "_pv": "", "_src": ""})
+            st.session_state["sw_reel_edit_k"] = _work[-1]["_k"]
+            st.rerun()
+
+    _dirty = _reels_norm(_work) != st.session_state.get("sw_reels_base")
+    _sin_video = [i for i, r in enumerate(_work) if not r.get("video")]
+    with _tb3:
+        with st.popover("Guardar cambios", use_container_width=True,
+                        disabled=not _dirty, icon=":material/cloud_upload:"):
+            st.markdown(f"**Guardar los reels en el tema «{_he(_info.get('theme_name'))}»**")
+            if _es_borrador:
+                st.caption("Se escriben en el tema BORRADOR. Pasan a producción cuando publiques ese tema.")
+            else:
+                st.caption("⚠️ Se escriben en el tema PUBLICADO: los cambios se ven de inmediato en la web.")
+            if _sin_video:
+                st.warning(f"Hay {len(_sin_video)} reel(s) sin video. Elígeles un video o elimínalos "
+                           "antes de guardar.", icon=":material/warning:")
+            else:
+                st.caption("Se hará un respaldo automático del tema antes de escribir.")
+                if st.button("Sí, guardar en la web", key="sw_reels_save_go", type="primary",
+                             icon=":material/cloud_upload:", use_container_width=True):
+                    _payload = [{"id": r.get("id"), "video": r.get("video"),
+                                 "caption": r.get("caption") or "",
+                                 "linked_product": r.get("linked_product") or "",
+                                 "advisor_name": r.get("advisor_name") or ""} for r in _work]
+                    with st.spinner("Guardando en Shopify (con respaldo)…"):
+                        _ok, _serr, _bk = _shop.guardar_reels(
+                            _info.get("theme_id"), _info.get("asset_key"),
+                            _info.get("section_id"), _payload)
+                    if _ok:
+                        st.session_state["sw_reels_saved"] = True
+                        _reels_clear_state()
+                        st.rerun()
+                    else:
+                        st.error(_serr or "No se pudo guardar.", icon=":material/error:")
+
+    if _dirty:
+        _cd1, _cd2 = st.columns([1.4, 6])
+        with _cd1:
+            if st.button("Descartar", key="sw_reels_discard", icon=":material/undo:",
+                         use_container_width=True):
+                for _k in ("sw_reels_work", "sw_reels_base", "sw_reels_workkey", "sw_reel_edit_k"):
+                    st.session_state.pop(_k, None)
+                st.rerun()
+        with _cd2:
+            st.caption("Tienes cambios sin guardar.")
+
+    # Lista de administración
+    for _i, _r in enumerate(_work):
+        with st.container():
+            _c0, _c1, _c2, _c3, _c4, _c5 = st.columns([0.7, 4, 1.2, 0.6, 0.6, 0.7],
+                                                      vertical_alignment="center")
+            with _c0:
+                if _r.get("_pv"):
+                    st.image(_r["_pv"], use_container_width=True)
+                else:
+                    st.markdown('<div style="aspect-ratio:9/16;background:#0f172a;border-radius:8px;">'
+                                '</div>', unsafe_allow_html=True)
+            with _c1:
+                _adv = _r.get("advisor_name") or "—"
+                _prod = _prod_map.get(str(_r.get("linked_product") or ""), "")
+                _cap = _r.get("caption") or "Sin descripción"
+                st.markdown(f"**{_he(_adv)}**"
+                            + (f" · {_he(_prod)}" if _prod and _prod != '(ninguno)' else "")
+                            + f"<br><span style='color:#64748b;font-size:.82rem;'>{_he(_cap)}</span>",
+                            unsafe_allow_html=True)
+            with _c2:
+                if st.button("Editar", key=f"sw_reel_ed_{_r['_k']}", use_container_width=True,
+                             icon=":material/edit:"):
+                    st.session_state["sw_reel_edit_k"] = _r["_k"]
+                    st.rerun()
+            with _c3:
+                if st.button("↑", key=f"sw_reel_up_{_r['_k']}", use_container_width=True,
+                             disabled=_i == 0, help="Subir"):
+                    _work[_i - 1], _work[_i] = _work[_i], _work[_i - 1]
+                    st.rerun()
+            with _c4:
+                if st.button("↓", key=f"sw_reel_dn_{_r['_k']}", use_container_width=True,
+                             disabled=_i == len(_work) - 1, help="Bajar"):
+                    _work[_i + 1], _work[_i] = _work[_i], _work[_i + 1]
+                    st.rerun()
+            with _c5:
+                if st.button("", key=f"sw_reel_del_{_r['_k']}", use_container_width=True,
+                             icon=":material/delete:", help="Eliminar reel"):
+                    _work.pop(_i)
+                    st.session_state.pop("sw_reel_edit_k", None)
+                    st.rerun()
+
+    # Diálogo de edición (si hay uno abierto)
+    _ek = st.session_state.get("sw_reel_edit_k")
+    if _ek:
+        _row = next((r for r in _work if r.get("_k") == _ek), None)
+        if _row:
+            _reel_edit_dialog(_row, _prod_opts, _files, _adv_names)
+        else:
+            st.session_state.pop("sw_reel_edit_k", None)
 
 
 def _render_editor(pid):

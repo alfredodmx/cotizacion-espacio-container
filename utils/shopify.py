@@ -1033,10 +1033,8 @@ def _src_de_video_node(_n) -> str:
     return (max(_mp4, key=lambda s: (s.get("height") or 0)).get("url")) or ""
 
 
-def _mapa_videos_files() -> dict:
-    """Videos de Content > Files como {filename_normalizado: {gid, preview_url, src}}.
-    Se usa para resolver referencias 'shopify://files/videos/<nombre>' (los reels guardan
-    el video como archivo, no como Video de producto). DEFENSIVO: si falla, devuelve {}."""
+def _fetch_videos_files() -> list:
+    """Nodos Video de Content > Files (hasta 250). DEFENSIVO: si falla devuelve []."""
     def _fetch(_qf):
         q = ("query($q:String){ files(first:250, query:$q){ nodes{ __typename "
              "... on Video { id filename preview{ image{ url } } "
@@ -1048,15 +1046,38 @@ def _mapa_videos_files() -> dict:
     _nodes = _fetch("media_type:VIDEO")
     if not _nodes:  # por si el filtro no aplica en esta versión de la API
         _nodes = _fetch(None)
+    return [_n for _n in (_nodes or []) if _n and _n.get("__typename") == "Video"]
+
+
+def _mapa_videos_files() -> dict:
+    """Videos de Content > Files como {filename_normalizado: {gid, preview_url, src}}.
+    Se usa para resolver referencias 'shopify://files/videos/<nombre>' (los reels guardan
+    el video como archivo, no como Video de producto). DEFENSIVO: si falla, devuelve {}."""
     _map = {}
-    for _n in (_nodes or []):
-        if not _n or _n.get("__typename") != "Video":
-            continue
+    for _n in _fetch_videos_files():
         _map[_norm_fn(_n.get("filename"))] = {
             "gid": _n.get("id") or "",
             "preview_url": (((_n.get("preview") or {}).get("image") or {}).get("url")) or "",
             "src": _src_de_video_node(_n)}
     return _map
+
+
+def listar_videos_files() -> tuple:
+    """Lista los videos de Content > Files para el SELECTOR al editar reels. Devuelve
+    (lista, error) con {filename, ref, preview_url, src}. `ref` es el valor a guardar en el
+    campo 'video' del reel: 'shopify://files/videos/<filename>'."""
+    if not configurado():
+        return [], "Sin credenciales de Shopify."
+    _out = []
+    for _n in _fetch_videos_files():
+        _fn = _n.get("filename") or ""
+        if not _fn:
+            continue
+        _out.append({"filename": _fn, "ref": f"shopify://files/videos/{_fn}",
+                     "preview_url": (((_n.get("preview") or {}).get("image") or {}).get("url")) or "",
+                     "src": _src_de_video_node(_n)})
+    _out.sort(key=lambda v: v["filename"].lower())
+    return _out, None
 
 
 def resolver_videos(video_ids) -> tuple:
@@ -1108,6 +1129,83 @@ def resolver_videos(video_ids) -> tuple:
         for _o, _fn in _files.items():
             out[_o] = _fmap.get(_norm_fn(_fn)) or {"gid": "", "preview_url": "", "src": ""}
     return out, None
+
+
+def guardar_reels(theme_id, asset_key, section_id, reels, backup=True) -> tuple:
+    """FASE 2 — reescribe los bloques 'reel' de la sección en el asset del tema (read-modify-
+    write con respaldo). `reels` es la lista FINAL en ORDEN: cada uno {id?, video, caption,
+    linked_product, advisor_name}; los que no traen 'id' se CREAN, los que faltan respecto al
+    tema se ELIMINAN, y el orden de la lista fija el block_order de los reels. Conserva intactos
+    los bloques que no son reel (asesores). Devuelve (ok, error, backup_key|None).
+
+    CUIDADO: escribe la config del tema. Sólo toca la sección indicada y los campos conocidos;
+    antes de escribir guarda un respaldo del asset original en assets/reels_backup_<ts>.json."""
+    import json as _json, uuid, time
+    if not configurado():
+        return False, "Sin credenciales de Shopify.", None
+    _val, _e = leer_asset(theme_id, asset_key)
+    if _e:
+        return False, _e, None
+    if not _val:
+        return False, "No se pudo leer el asset del tema (¿cambió?).", None
+    _raw = _val
+    try:
+        _obj = _json.loads(_val)
+    except Exception:
+        try:  # los .json de tema a veces llevan un comentario /* */ inicial
+            import re
+            _clean = re.sub(r"^\s*/\*.*?\*/\s*", "", _val, flags=re.S)
+            _obj = _json.loads(_clean)
+            _raw = _clean
+        except Exception as ex:
+            return False, f"No se pudo interpretar el JSON del tema: {ex}", None
+    _cont = _obj
+    if asset_key == "config/settings_data.json":
+        _cont = _obj.get("current") if isinstance(_obj.get("current"), dict) else None
+        if _cont is None:
+            return False, "Estructura inesperada de settings_data.json.", None
+    _secs = _cont.get("sections") if isinstance(_cont, dict) else None
+    if not isinstance(_secs, dict) or section_id not in _secs:
+        return False, "No se encontró la sección de reels (¿cambió el tema?).", None
+    _sec = _secs[section_id]
+    _blocks = _sec.get("blocks") or {}
+    _order = _sec.get("block_order") or list(_blocks.keys())
+    # Bloques que NO son reel (asesores, etc.), en su orden original: se conservan tal cual.
+    _no_reel = [bid for bid in _order if isinstance(_blocks.get(bid), dict)
+                and _blocks[bid].get("type") != "reel"]
+    _new_blocks = {bid: _blocks[bid] for bid in _no_reel}
+    _new_reel_ids = []
+    for _r in (reels or []):
+        _bid = _r.get("id")
+        if _bid and _bid in _blocks and (_blocks.get(_bid) or {}).get("type") == "reel":
+            _stt = dict((_blocks[_bid] or {}).get("settings") or {})  # conserva campos extra
+        else:
+            _bid = "reel_" + uuid.uuid4().hex[:12]
+            _stt = {}
+        _vid = _r.get("video")
+        if _vid in (None, ""):
+            _vid = _stt.get("video", "")
+        _stt["video"] = _vid
+        _stt["caption"] = _r.get("caption", "") or ""
+        _stt["linked_product"] = _r.get("linked_product", "") or ""
+        _stt["advisor_name"] = _r.get("advisor_name", "") or ""
+        _new_blocks[_bid] = {"type": "reel", "settings": _stt}
+        _new_reel_ids.append(_bid)
+    _sec["blocks"] = _new_blocks
+    _sec["block_order"] = _no_reel + _new_reel_ids
+    # Respaldo best-effort del asset ORIGINAL (por si hay que revertir a mano).
+    _bkey = None
+    if backup:
+        _cand = f"assets/reels_backup_{time.strftime('%Y%m%d_%H%M%S')}.json"
+        try:
+            _bok, _ = escribir_asset(theme_id, _cand, _raw)
+            _bkey = _cand if _bok else None
+        except Exception:
+            _bkey = None
+    _ok, _we = escribir_asset(theme_id, asset_key, _json.dumps(_obj, ensure_ascii=False))
+    if not _ok:
+        return False, _we, _bkey
+    return True, None, _bkey
 
 
 def duplicar_producto(pid, new_title, include_images: bool = True, new_status: str = "DRAFT") -> tuple:
