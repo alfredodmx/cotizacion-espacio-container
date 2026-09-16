@@ -800,6 +800,202 @@ def eliminar_media(pid, media_id) -> tuple:
     return True, None
 
 
+# ── Tema / REELS (Asset API — requiere read_themes / write_themes) ────────────
+
+def _scope_hint_themes(code) -> str:
+    return (" — el token NO tiene aprobado 'read_themes'/'write_themes'. En tu app custom de "
+            "Shopify: agrega los scopes read_themes y write_themes, Guarda y REINSTALA la app "
+            "(aprobación del comerciante). Si al reinstalar cambia el token, actualiza "
+            "SHOPIFY_TOKEN." if code in (401, 403) else "")
+
+
+def listar_temas() -> tuple:
+    """Temas de la tienda (Asset API). Devuelve (lista, error). Cada uno: {id, name, role}."""
+    if not configurado():
+        return [], "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.get(f"https://{_store()}/admin/api/{_version()}/themes.json",
+                         headers=_headers(), timeout=25)
+        if r.status_code == 200:
+            return (r.json() or {}).get("themes") or [], None
+        return [], f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
+    except Exception as e:
+        return [], str(e)
+
+
+def tema_principal() -> tuple:
+    """El tema PUBLICADO (role='main'). Devuelve (theme|None, error)."""
+    _temas, err = listar_temas()
+    if err:
+        return None, err
+    _m = next((t for t in (_temas or []) if str(t.get("role")) == "main"), None)
+    return _m, (None if _m else "No se encontró el tema principal (publicado).")
+
+
+def leer_asset(theme_id, key) -> tuple:
+    """Lee el valor de un asset del tema (p.ej. 'config/settings_data.json'). Devuelve
+    (value_str|None, error). 404 = no existe (no es error duro). DEFENSIVO."""
+    if not configurado():
+        return None, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.get(f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
+                         headers=_headers(), params={"asset[key]": key}, timeout=25)
+        if r.status_code == 200:
+            return ((r.json() or {}).get("asset") or {}).get("value"), None
+        if r.status_code == 404:
+            return None, None
+        return None, f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
+    except Exception as e:
+        return None, str(e)
+
+
+def listar_assets_json(theme_id) -> tuple:
+    """CLAVES de assets JSON del tema (templates/*.json, sections/*.json y settings_data),
+    donde pueden vivir las secciones. Devuelve (keys, error)."""
+    if not configurado():
+        return [], "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.get(f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
+                         headers=_headers(), timeout=30)
+        if r.status_code != 200:
+            return [], f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
+        _keys = [a.get("key") for a in ((r.json() or {}).get("assets") or [])]
+        _out = [k for k in _keys if k and k.endswith(".json")
+                and (k.startswith("templates/") or k.startswith("sections/")
+                     or k == "config/settings_data.json")]
+        return _out, None
+    except Exception as e:
+        return [], str(e)
+
+
+def escribir_asset(theme_id, key, value) -> tuple:
+    """Escribe (REEMPLAZA) un asset del tema. CUIDADO: es la config del tema — el llamador
+    hace read-modify-write con respaldo. Devuelve (ok, error)."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    import requests
+    try:
+        r = requests.put(f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
+                         headers=_headers(), json={"asset": {"key": key, "value": value}}, timeout=45)
+        if r.status_code in (200, 201):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint_themes(r.status_code)
+    except Exception as e:
+        return False, str(e)
+
+
+def _seccion_con_reels(obj):
+    """(section_id, section) de la 1ª sección con bloques 'reel' dentro de un JSON parseado."""
+    _secs = obj.get("sections") if isinstance(obj, dict) else None
+    if not isinstance(_secs, dict):
+        return None, None
+    for _sid, _sec in _secs.items():
+        if not isinstance(_sec, dict):
+            continue
+        _blocks = _sec.get("blocks") or {}
+        if isinstance(_blocks, dict) and any(
+                isinstance(_b, dict) and _b.get("type") == "reel" for _b in _blocks.values()):
+            return _sid, _sec
+    return None, None
+
+
+def leer_reels() -> tuple:
+    """Encuentra la sección de reels en el tema PUBLICADO y devuelve (info|None, error).
+    Busca en TODOS los JSON del tema (settings_data + templates + section groups) la 1ª
+    sección con bloques de tipo 'reel'. info = {theme_id, asset_key, section_id,
+    section_type, block_order, reels:[{id,video,caption,linked_product,advisor_name}],
+    advisors:[{id,name,role,video}], raw_reel (1er bloque crudo, para diagnóstico)}."""
+    import json as _json
+    _tema, err = tema_principal()
+    if err or not _tema:
+        return None, err or "Sin tema principal."
+    _tid = _tema.get("id")
+    _keys, err2 = listar_assets_json(_tid)
+    if err2:
+        return None, err2
+    _pri = ([k for k in _keys if k == "config/settings_data.json"]
+            + [k for k in _keys if k == "templates/index.json"]
+            + [k for k in _keys if k not in ("config/settings_data.json", "templates/index.json")])
+    for _key in _pri:
+        _val, _e = leer_asset(_tid, _key)
+        if _e or not _val:
+            continue
+        try:
+            _obj = _json.loads(_val)
+        except Exception:
+            continue
+        _cand = _obj
+        if _key == "config/settings_data.json":
+            _cand = _obj.get("current") if isinstance(_obj.get("current"), dict) else {}
+        _sid, _sec = _seccion_con_reels(_cand or {})
+        if _sec:
+            _blocks = _sec.get("blocks") or {}
+            _order = _sec.get("block_order") or list(_blocks.keys())
+            _reels, _advisors, _raw = [], [], None
+            for _bid in _order:
+                _b = _blocks.get(_bid)
+                if not isinstance(_b, dict):
+                    continue
+                _st = _b.get("settings") or {}
+                if _b.get("type") == "reel":
+                    if _raw is None:
+                        _raw = _b
+                    _reels.append({"id": _bid, "video": _st.get("video"),
+                                   "caption": _st.get("caption") or "",
+                                   "linked_product": _st.get("linked_product"),
+                                   "advisor_name": _st.get("advisor_name") or ""})
+                elif _b.get("type") == "advisor":
+                    _advisors.append({"id": _bid, "name": _st.get("name") or "",
+                                      "role": _st.get("role") or "", "video": _st.get("video")})
+            return ({"theme_id": _tid, "theme_name": _tema.get("name") or "", "asset_key": _key,
+                     "section_id": _sid, "section_type": _sec.get("type") or "",
+                     "block_order": _order, "reels": _reels, "advisors": _advisors,
+                     "raw_reel": _raw}, None)
+    return None, "No se encontró una sección de reels en el tema publicado."
+
+
+def resolver_videos(video_ids) -> tuple:
+    """Dado un iterable de ids de video (numéricos o gid), devuelve (dict, error) con
+    {id_original: {gid, preview_url, src}} vía GraphQL nodes. DEFENSIVO."""
+    _norm = {}
+    for _v in video_ids or []:
+        if not _v:
+            continue
+        _s = str(_v)
+        if _s.startswith("gid://"):
+            _gid = _s
+        elif _s.isdigit():
+            _gid = f"gid://shopify/Video/{_s}"
+        else:
+            continue
+        _norm[_s] = _gid
+    if not _norm:
+        return {}, None
+    q = ("query($ids:[ID!]!){ nodes(ids:$ids){ id __typename "
+         "... on Video { preview { image { url } } sources { url height mimeType } } } }")
+    data, err = _graphql(q, {"ids": list(dict.fromkeys(_norm.values()))})
+    if err:
+        return {}, err
+    _by_gid = {}
+    for _n in ((data or {}).get("nodes") or []):
+        if not _n:
+            continue
+        _gid = _n.get("id")
+        _src = ""
+        _srcs = [s for s in (_n.get("sources") or []) if (s or {}).get("url")]
+        if _srcs:
+            _mp4 = [s for s in _srcs if "mp4" in str(s.get("mimeType") or "").lower()] or _srcs
+            _src = (max(_mp4, key=lambda s: (s.get("height") or 0)).get("url")) or ""
+        _by_gid[_gid] = {"gid": _gid,
+                         "preview_url": (((_n.get("preview") or {}).get("image") or {}).get("url")) or "",
+                         "src": _src}
+    return ({_o: _by_gid.get(_g, {"gid": _g, "preview_url": "", "src": ""})
+             for _o, _g in _norm.items()}, None)
+
+
 def duplicar_producto(pid, new_title, include_images: bool = True, new_status: str = "DRAFT") -> tuple:
     """Duplica un producto (copia título/desc/variantes/opciones/tags/tipo + fotos si
     `include_images`) como BORRADOR por defecto. Devuelve (nuevo_id_numérico|None, error).

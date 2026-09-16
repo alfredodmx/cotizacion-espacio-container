@@ -1723,15 +1723,20 @@ def render_tab_sitio_web(**kwargs):
 
     # ── Selector de vista: Tarjetas (por defecto) / Tabla / Ordenar web ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
-    _vistas = ["Tarjetas", "Tabla", "Ordenar web"]
+    _vistas = ["Tarjetas", "Tabla", "Ordenar web", "Reels"]
     _vicons = {"Tarjetas": ":material/grid_view:", "Tabla": ":material/table_rows:",
-               "Ordenar web": ":material/swap_vert:"}
+               "Ordenar web": ":material/swap_vert:", "Reels": ":material/movie:"}
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
 
     # Modo "Ordenar web": arrastrar las tarjetas de una colección → fija su orden en la web.
     if _vista == "Ordenar web":
         _render_reordenar()
+        return
+
+    # Modo "Reels": ver/editar los videos reels de la sección de Shopify (bloques del tema).
+    if _vista == "Reels":
+        _render_reels()
         return
 
     # Cada opción → (status a pedir a Shopify, filtro extra client-side por estado
@@ -2174,6 +2179,113 @@ _SW_FLOAT_JS = r"""<script>
   PD.body.appendChild(s); s.remove();
 })();
 </script>"""
+
+
+_SW_REELS_CSS = """<style>
+.sw-reels-meta{font-size:0.76rem;color:#64748b;margin:2px 0 14px;}
+.sw-reels-meta code{background:#eef2ff;color:#4f46e5;padding:1px 6px;border-radius:5px;font-size:0.72rem;}
+.sw-reels-h{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.82rem;letter-spacing:.04em;
+  text-transform:uppercase;color:#0f172a;margin:16px 0 10px;display:flex;align-items:center;gap:8px;}
+.sw-reels-h::before{content:'';width:4px;height:14px;border-radius:3px;background:linear-gradient(180deg,#5b7cfa,#4f46e5);}
+.sw-reel-av{width:74px;height:74px;border-radius:50%;background:#0f172a;background-size:cover;background-position:center;margin:0 auto;border:2px solid #e2e8f0;}
+.sw-reel-av--empty{display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.6rem;font-weight:700;}
+.sw-reel-avn{text-align:center;font-size:0.76rem;font-weight:700;color:#0f172a;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sw-reel-avr{text-align:center;font-size:0.66rem;color:#94a3b8;}
+.sw-reel-card{position:relative;aspect-ratio:9/16;border-radius:12px;overflow:hidden;background:#0f172a;border:1px solid #e8ebf3;}
+.sw-reel-card img{width:100%;height:100%;object-fit:cover;display:block;}
+.sw-reel-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:.06em;}
+.sw-reel-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;border-radius:50%;background:rgba(10,14,20,.5);border:1.5px solid rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;}
+.sw-reel-play svg{width:15px;height:15px;margin-left:2px;}
+.sw-reel-tag{position:absolute;left:6px;bottom:6px;z-index:2;background:rgba(8,10,14,.85);color:#fff;font-family:Montserrat,sans-serif;font-weight:700;font-size:0.62rem;letter-spacing:.03em;padding:3px 8px;border-radius:6px;max-width:calc(100% - 12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sw-reel-cap{font-size:0.7rem;color:#64748b;margin:5px 2px 0;line-height:1.3;}
+</style>"""
+
+
+def _render_reels():
+    """FASE 1 (solo lectura): muestra los reels de la sección de Shopify (bloques del tema)
+    — video + asesor + producto + caption. La EDICIÓN (Fase 2) se agrega después de validar
+    que se leen bien (formato del video / ubicación de la sección)."""
+    st.markdown(_SW_REELS_CSS, unsafe_allow_html=True)
+    _h1, _h2 = st.columns([5, 1.3], vertical_alignment="bottom")
+    with _h1:
+        st.markdown(f'<div class="sw-sec">{_ic("video", "#0f172a", 17, 0)}Reels por asesor</div>',
+                    unsafe_allow_html=True)
+    with _h2:
+        if st.button("Actualizar", icon=":material/refresh:", key="sw_reels_refresh",
+                     use_container_width=True):
+            for _k in ("sw_reels", "sw_reels_err", "sw_reels_vids"):
+                st.session_state.pop(_k, None)
+            st.rerun()
+    st.caption("Videos verticales de la sección «Reels por asesor» de tu web (bloques del tema). "
+               "Por ahora se muestran para revisarlos; la edición desde aquí viene enseguida.")
+
+    _info = st.session_state.get("sw_reels")
+    if _info is None:
+        with st.spinner("Buscando los reels en tu tema de Shopify…"):
+            _info, _rerr = _shop.leer_reels()
+        st.session_state["sw_reels"] = _info or {}
+        st.session_state["sw_reels_err"] = _rerr
+    if not _info:
+        st.warning(st.session_state.get("sw_reels_err")
+                   or "No se encontró la sección de reels en el tema publicado.")
+        return
+
+    _vids = st.session_state.get("sw_reels_vids")
+    if _vids is None:
+        _ids = ([r.get("video") for r in _info.get("reels", [])]
+                + [a.get("video") for a in _info.get("advisors", [])])
+        with st.spinner("Cargando miniaturas de los videos…"):
+            _vids, _ = _shop.resolver_videos(_ids)
+        st.session_state["sw_reels_vids"] = _vids or {}
+    _vids = _vids or {}
+
+    _reels = _info.get("reels", [])
+    _advisors = _info.get("advisors", [])
+    st.markdown(f'<div class="sw-reels-meta">Tema: <b>{_he(_info.get("theme_name"))}</b> · '
+                f'sección <code>{_he(_info.get("section_type"))}</code> · '
+                f'{len(_reels)} reel(s) · {len(_advisors)} asesor(es)</div>', unsafe_allow_html=True)
+
+    if _advisors:
+        st.markdown('<div class="sw-reels-h">Asesores</div>', unsafe_allow_html=True)
+        _nc = min(6, max(1, len(_advisors)))
+        _acols = st.columns(_nc)
+        for _i, _a in enumerate(_advisors):
+            with _acols[_i % _nc]:
+                _pv = (_vids.get(str(_a.get("video"))) or {}).get("preview_url", "")
+                _av = (f'<div class="sw-reel-av" style="background-image:url(\'{_he(_pv)}\')"></div>'
+                       if _pv else '<div class="sw-reel-av sw-reel-av--empty">Sin video</div>')
+                st.markdown(_av + f'<div class="sw-reel-avn">{_he(_a.get("name") or "—")}</div>'
+                            + (f'<div class="sw-reel-avr">{_he(_a.get("role"))}</div>'
+                               if _a.get("role") else ""), unsafe_allow_html=True)
+
+    st.markdown('<div class="sw-reels-h">Videos</div>', unsafe_allow_html=True)
+    if not _reels:
+        st.info("La sección no tiene bloques de reel todavía.")
+    else:
+        _n = 4
+        for _base in range(0, len(_reels), _n):
+            _rcols = st.columns(_n)
+            for _j, _r in enumerate(_reels[_base:_base + _n]):
+                with _rcols[_j]:
+                    _pv = (_vids.get(str(_r.get("video"))) or {}).get("preview_url", "")
+                    _thumb = (f'<img src="{_he(_pv)}" alt="">' if _pv
+                              else '<div class="sw-reel-ph">VIDEO</div>')
+                    _tag = (f'<div class="sw-reel-tag">{_he(_r.get("advisor_name"))}</div>'
+                            if _r.get("advisor_name") else "")
+                    st.markdown(
+                        f'<div class="sw-reel-card">{_thumb}{_tag}'
+                        '<div class="sw-reel-play"><svg viewBox="0 0 24 24" fill="#fff">'
+                        '<polygon points="6 3 20 12 6 21 6 3"/></svg></div></div>'
+                        + (f'<div class="sw-reel-cap">{_he(_r.get("caption"))}</div>'
+                           if _r.get("caption") else ""), unsafe_allow_html=True)
+
+    # Diagnóstico: si NINGÚN video resolvió a miniatura, mostrar la estructura cruda del
+    # bloque para ver el formato exacto del campo 'video' y ajustar la resolución.
+    _any = any((_vids.get(str(r.get("video"))) or {}).get("preview_url") for r in _reels)
+    if _reels and not _any:
+        with st.expander("Diagnóstico — no se resolvieron las miniaturas (ver estructura)"):
+            st.caption(f"Valor del campo 'video' del primer reel: {_reels[0].get('video')!r}")
+            st.json(_info.get("raw_reel") or {})
 
 
 def _render_editor(pid):
