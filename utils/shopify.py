@@ -902,17 +902,15 @@ def _seccion_con_reels(obj):
     return None, None
 
 
-def leer_reels() -> tuple:
-    """Encuentra la sección de reels en el tema PUBLICADO y devuelve (info|None, error).
-    Busca en TODOS los JSON del tema (settings_data + templates + section groups) la 1ª
-    sección con bloques de tipo 'reel'. info = {theme_id, asset_key, section_id,
-    section_type, block_order, reels:[{id,video,caption,linked_product,advisor_name}],
-    advisors:[{id,name,role,video}], raw_reel (1er bloque crudo, para diagnóstico)}."""
+def _reels_en_tema(tema) -> tuple:
+    """Busca la sección de reels dentro de UN tema. Devuelve (info|None, error).
+    Un error != None es un fallo DURO (p.ej. scope o red). 'No encontrado' => (None, None)
+    para que el llamador siga probando otros temas. info incluye theme_id/theme_name/
+    theme_role para que la UI sepa si es el publicado o un borrador."""
     import json as _json
-    _tema, err = tema_principal()
-    if err or not _tema:
-        return None, err or "Sin tema principal."
-    _tid = _tema.get("id")
+    if not isinstance(tema, dict):
+        return None, None
+    _tid = tema.get("id")
     _keys, err2 = listar_assets_json(_tid)
     if err2:
         return None, err2
@@ -950,11 +948,41 @@ def leer_reels() -> tuple:
                 elif _b.get("type") == "advisor":
                     _advisors.append({"id": _bid, "name": _st.get("name") or "",
                                       "role": _st.get("role") or "", "video": _st.get("video")})
-            return ({"theme_id": _tid, "theme_name": _tema.get("name") or "", "asset_key": _key,
+            return ({"theme_id": _tid, "theme_name": tema.get("name") or "",
+                     "theme_role": str(tema.get("role") or ""), "asset_key": _key,
                      "section_id": _sid, "section_type": _sec.get("type") or "",
                      "block_order": _order, "reels": _reels, "advisors": _advisors,
                      "raw_reel": _raw}, None)
-    return None, "No se encontró una sección de reels en el tema publicado."
+    return None, None
+
+
+def leer_reels() -> tuple:
+    """Encuentra la sección de reels y devuelve (info|None, error). Busca PRIMERO en el
+    tema publicado (role='main'); si no está ahí, en los temas BORRADOR (role='unpublished'/
+    'development'), para poder editar una versión en construcción. info incluye theme_role
+    ('main' = producción, otro = borrador) y theme_name para que la UI lo indique. En cada
+    tema escanea todos los JSON (settings_data + templates + section groups) buscando la 1ª
+    sección con bloques de tipo 'reel'."""
+    _temas, err = listar_temas()
+    if err:
+        return None, err
+    if not _temas:
+        return None, "No hay temas en la tienda."
+    _main = next((t for t in _temas if str(t.get("role")) == "main"), None)
+    # Publicado primero; luego el resto (borradores/desarrollo). Excluye copias de sistema.
+    _borradores = [t for t in _temas if t is not _main
+                   and str(t.get("role")) not in ("demo", "archived")]
+    _orden = ([_main] if _main else []) + _borradores
+    _primer_err = None
+    for _t in _orden:
+        _info, _e = _reels_en_tema(_t)
+        if _e:
+            _primer_err = _primer_err or _e
+            continue
+        if _info:
+            return _info, None
+    return None, (_primer_err
+                  or "No se encontró una sección de reels en ningún tema (ni publicado ni borrador).")
 
 
 def resolver_videos(video_ids) -> tuple:

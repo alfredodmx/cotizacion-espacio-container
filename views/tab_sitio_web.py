@@ -2184,6 +2184,10 @@ _SW_FLOAT_JS = r"""<script>
 _SW_REELS_CSS = """<style>
 .sw-reels-meta{font-size:0.76rem;color:#64748b;margin:2px 0 14px;}
 .sw-reels-meta code{background:#eef2ff;color:#4f46e5;padding:1px 6px;border-radius:5px;font-size:0.72rem;}
+.sw-reels-badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:0.66rem;
+  font-weight:700;text-transform:uppercase;letter-spacing:0.04em;vertical-align:middle;}
+.sw-reels-badge.is-live{background:#dcfce7;color:#15803d;}
+.sw-reels-badge.is-draft{background:#fef3c7;color:#b45309;}
 .sw-reels-h{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.82rem;letter-spacing:.04em;
   text-transform:uppercase;color:#0f172a;margin:16px 0 10px;display:flex;align-items:center;gap:8px;}
 .sw-reels-h::before{content:'';width:4px;height:14px;border-radius:3px;background:linear-gradient(180deg,#5b7cfa,#4f46e5);}
@@ -2241,8 +2245,17 @@ def _render_reels():
 
     _reels = _info.get("reels", [])
     _advisors = _info.get("advisors", [])
-    st.markdown(f'<div class="sw-reels-meta">Tema: <b>{_he(_info.get("theme_name"))}</b> · '
-                f'sección <code>{_he(_info.get("section_type"))}</code> · '
+    _es_borrador = str(_info.get("theme_role") or "") != "main"
+    if _es_borrador:
+        st.info(f"Estos reels están en una **versión BORRADOR** de tu tema: "
+                f"**{_info.get('theme_name') or '—'}** (no es la publicada). No se encontró la "
+                f"sección en el tema publicado, así que se muestra y edita la del borrador. "
+                f"Cuando publiques ese tema, estos cambios pasan a producción.",
+                icon=":material/draft:")
+    _rol_txt = "publicado" if not _es_borrador else "borrador"
+    st.markdown(f'<div class="sw-reels-meta">Tema: <b>{_he(_info.get("theme_name"))}</b> '
+                f'<span class="sw-reels-badge {"is-draft" if _es_borrador else "is-live"}">'
+                f'{_rol_txt}</span> · sección <code>{_he(_info.get("section_type"))}</code> · '
                 f'{len(_reels)} reel(s) · {len(_advisors)} asesor(es)</div>', unsafe_allow_html=True)
 
     if _advisors:
