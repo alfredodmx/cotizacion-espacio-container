@@ -754,6 +754,9 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
 .ed-mf-row.ed-mf-deleted .ed-in{background:#f1f5f9;pointer-events:none;}
 .ed-mf-bool{display:flex;align-items:center;gap:9px;padding-top:9px;font-weight:600;color:#334155;font-size:0.9rem;cursor:pointer;}
 .ed-mf-bool input{width:18px;height:18px;accent-color:#2563eb;cursor:pointer;}
+/* Especificaciones (sidebar) */
+.ed-especs-hint{font-size:0.72rem;color:#94a3b8;margin:0 0 8px;}
+.ed-especs-input{min-height:140px;line-height:1.5;}
 /* Imágenes de planta y render (metacampos de imagen) */
 .ed-imgmeta-card{grid-column:1 / -1;}
 .ed-ims-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -875,6 +878,7 @@ input.ed-money{padding-left:24px;font-variant-numeric:tabular-nums;font-weight:7
     <div class="ed-mf-hint">Los detalles del producto (m², dormitorios, baños, clima, características, etc.). Complétalos; un campo que dejes vacío no se publica. La papelera vacía/elimina ese campo. Se guardan con «Guardar y publicar».</div>
     <div class="ed-mf-list">__METAFIELDS__</div>
   </div>
+  __ESPECS__
   <div class="ed-card ed-imgmeta-card" style="margin-top:16px;">
     <div class="ed-lbl">Imágenes de planta y render</div>
     <div class="ed-mf-hint">Imágenes adicionales del producto (planta y render). Se suben al pulsar «Guardar y publicar».</div>
@@ -1106,7 +1110,10 @@ function collect(){
     collections_present:doc.querySelectorAll('.ed-col').length>0,
     image_order:image_order, image_delete:image_delete, image_add_urls:image_add_urls,
     video_delete:video_delete, media_order:media_order, new_ext_videos:new_ext_videos,
-    metafields:collectMetafields()
+    metafields:collectMetafields(),
+    especs_sidebar:(function(){ var e=doc.getElementById('f_especs'); return e?{value:e.value,
+      type:e.getAttribute('data-type')||'', id:e.getAttribute('data-id')||'',
+      orig:e.getAttribute('data-orig')||''}:null; })()
   };
 }
 function fire(payload){
@@ -1363,6 +1370,57 @@ def _mf_rows_html(editable):
     return _rows or '<div class="ed-info">No hay características definidas en la tienda.</div>'
 
 
+def _especs_to_text(_type, _value):
+    """Valor del metacampo → texto para el textarea (lista = una línea por ítem)."""
+    import json as _json
+    _t = str(_type or "")
+    if _t.startswith("list."):
+        try:
+            _arr = _json.loads(_value) if _value else []
+            if isinstance(_arr, list):
+                return "\n".join(str(x) for x in _arr)
+        except Exception:
+            pass
+        return str(_value or "")
+    if _t == "rich_text_field":
+        return _richtext_to_text(_value)
+    return str(_value or "")
+
+
+def _especs_serialize(_type, _text):
+    """Texto del textarea → valor para Shopify según el tipo. Devuelve (serializado, vacío?)."""
+    import json as _json
+    _t = str(_type or "")
+    if _t.startswith("list."):
+        _lines = [ln.strip() for ln in str(_text or "").splitlines() if ln.strip()]
+        return _json.dumps(_lines, ensure_ascii=False), (len(_lines) == 0)
+    if _t == "rich_text_field":
+        return _text_to_richtext(_text or ""), (not str(_text or "").strip())
+    _s = str(_text or "")
+    return _s, (not _s.strip())
+
+
+def _especs_html(especs):
+    """Tarjeta HTML del metacampo ESPECIFICACIONES (SIDEBAR) — textarea, ancho completo."""
+    if not especs:
+        return ""
+    _t = str(especs.get("type") or "")
+    _islist = _t.startswith("list.")
+    _hint = ("Una especificación por línea (aparecen como lista en la barra lateral)."
+             if _islist else "Texto de las especificaciones que se muestra en la barra lateral.")
+    _ph = "Ej: 2 dormitorios&#10;45 m²&#10;Baño completo&#10;Cocina equipada"
+    return (
+        '<div class="ed-card ed-especs-card" style="grid-column:1 / -1;margin-top:16px;">'
+        '<div class="ed-lbl">Especificaciones (sidebar)</div>'
+        '<div class="ed-mf-hint">Las especificaciones que se muestran en la barra lateral del '
+        'producto en la web (metacampo <code>custom.especificaciones_sidebar</code>). Se guardan '
+        'con «Guardar y publicar».</div>'
+        f'<div class="ed-especs-hint">{_hint}</div>'
+        f'<textarea class="ed-in ed-especs-input" id="f_especs" data-type="{_he(_t)}" '
+        f'data-id="{_he(especs.get("id") or "")}" data-orig="{_he(especs.get("text") or "")}" '
+        f'placeholder="{_ph}">{_he(especs.get("text") or "")}</textarea></div>')
+
+
 def _imgmeta_html(img_metas):
     """Slots HTML de los metacampos de imagen (planta/render) para el formulario. Cada slot:
     caja con la imagen actual (uniforme), botón para elegir/cambiar y botón para quitar."""
@@ -1400,7 +1458,8 @@ def _imgmeta_html(img_metas):
     return _out or '<div class="ed-info">No hay metacampos de imagen configurados.</div>'
 
 
-def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, videos=None, img_metas=None):
+def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, videos=None,
+                       img_metas=None, especs=None):
     """Arma el formulario HTML del editor. `pubs`=canales [{id,name}], `prod_pubs`=set
     GIDs publicados, `cols`=colecciones [{id,title}], `cur_cols`=ids seleccionadas,
     `videos`=medios de video del producto (se muestran junto a las fotos).
@@ -1506,6 +1565,7 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, vide
              .replace("__VENDOR__", _he(p.get("vendor") or ""))
              .replace("__COLLECTIONS__", _collections)
              .replace("__METAFIELDS__", _mf_rows_html(metafields))
+             .replace("__ESPECS__", _especs_html(especs))
              .replace("__IMGMETAS__", _imgmeta_html(img_metas)))
     # Altura estimada (izquierda vs derecha) + características (el iframe se auto-ajusta luego).
     _nmedia = len(_imgs) + len(_vids)
@@ -1514,7 +1574,8 @@ def _build_editor_form(p, pubs, prod_pubs, cols, cur_cols, metafields=None, vide
     _right = 130 + (max(1, len(pubs or [])) * 44 + 60) + (200 + len(cols or []) * 34)
     _mf_h = 90 + len(metafields or []) * 78
     _imgmeta_h = 360 if (img_metas is not None) else 0   # tarjeta de imágenes planta/render
-    _h = 70 + max(_left, _right) + _mf_h + _imgmeta_h
+    _especs_h = 250 if especs else 0                      # tarjeta especificaciones sidebar
+    _h = 70 + max(_left, _right) + _mf_h + _imgmeta_h + _especs_h
     return _html, _h
 
 
@@ -1699,6 +1760,25 @@ def _guardar_todo(pid, data: dict):
                 _errs.append(_e)
         elif not _empty:                 # nuevo y con contenido → crear
             _ok, _e = _shop.crear_metafield(pid, _mns, _mkey, _mtype, _ser)
+            if not _ok:
+                _errs.append(_e)
+    # 6b) Especificaciones (sidebar): editor dedicado; serializa según el tipo (lista → JSON).
+    _esp = data.get("especs_sidebar")
+    if _esp is not None and str(_esp.get("value")) != str(_esp.get("orig")):
+        _etype = _esp.get("type") or "list.single_line_text_field"
+        _eid = (_esp.get("id") or "").strip()
+        _eser, _eempty = _especs_serialize(_etype, _esp.get("value"))
+        if _eempty:
+            if _eid:
+                _ok, _e = _shop.eliminar_metafield(pid, _eid)
+                if not _ok:
+                    _errs.append(_e)
+        elif _eid:
+            _ok, _e = _shop.actualizar_metafield(pid, _eid, _etype, _eser)
+            if not _ok:
+                _errs.append(_e)
+        else:
+            _ok, _e = _shop.crear_metafield(pid, "custom", "especificaciones_sidebar", _etype, _eser)
             if not _ok:
                 _errs.append(_e)
     # 7) Fotos/videos elegidos desde el PC (van en el mismo guardado).
@@ -2866,10 +2946,12 @@ def _render_editor(pid):
         st.session_state["sw_edit_mf_pid"] = str(pid)
     _defs = _plantilla_metafields()
     _mf_by_nk = {(m.get("namespace") or "", m.get("key") or ""): m for m in _mf}
+    # Metacampos con editor DEDICADO (no van en la lista genérica de Características).
+    _MF_DEDICADOS = {("custom", "especificaciones_sidebar")} | {(ns, k) for ns, k, *_ in _IMG_MFS}
     _mf_editable, _mf_seen = [], set()
     for d in _defs:
         _nk = (d.get("namespace") or "", d.get("key") or "")
-        if _mf_kind(d.get("type")) == "readonly":
+        if _nk in _MF_DEDICADOS or _mf_kind(d.get("type")) == "readonly":
             continue
         _ex = _mf_by_nk.get(_nk)
         if _ex:
@@ -2880,7 +2962,7 @@ def _render_editor(pid):
         _mf_seen.add(_nk)
     for m in _mf:
         _nk = (m.get("namespace") or "", m.get("key") or "")
-        if _nk in _mf_seen or _mf_kind(m.get("type")) == "readonly":
+        if _nk in _mf_seen or _nk in _MF_DEDICADOS or _mf_kind(m.get("type")) == "readonly":
             continue
         _mf_editable.append({**m, "name": _mf_label(m)})
 
@@ -2899,6 +2981,19 @@ def _render_editor(pid):
         _v = (_mf_by_nk.get((_ns, _key)) or {}).get("value") or ""
         _img_metas.append({"ns": _ns, "key": _key, "label": _label, "hint": _hint,
                            "gid": _v, "url": (_iurls.get(_v) if _v else "") or ""})
+
+    # ESPECIFICACIONES (SIDEBAR): tipo detectado (del propio producto o de la definición) +
+    # valor actual → texto para el textarea. Editor dedicado (list = una línea por ítem).
+    _esp_mf = _mf_by_nk.get(("custom", "especificaciones_sidebar"))
+    if _esp_mf and _esp_mf.get("type"):
+        _esp_type, _esp_id, _esp_val = _esp_mf.get("type"), (_esp_mf.get("id") or ""), (_esp_mf.get("value") or "")
+    else:
+        _esp_def = next((d for d in _defs if (d.get("namespace"), d.get("key"))
+                         == ("custom", "especificaciones_sidebar")), None)
+        _esp_type = (_esp_def.get("type") if _esp_def else "") or "list.single_line_text_field"
+        _esp_id, _esp_val = "", ""
+    _especs = {"type": _esp_type, "id": _esp_id,
+               "text": _especs_to_text(_esp_type, _esp_val)}
 
     # Puente de guardado (input oculto sw_savecmd; se auto-limpia tras procesar).
     if st.session_state.pop("_sw_reset_savecmd", False):
@@ -2975,6 +3070,7 @@ def _render_editor(pid):
         st.session_state["sw_edit_vid_pid"] = str(pid)
 
     _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols,
-                                             metafields=_mf_editable, videos=_vid, img_metas=_img_metas)
+                                             metafields=_mf_editable, videos=_vid,
+                                             img_metas=_img_metas, especs=_especs)
     components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
     components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
