@@ -2189,7 +2189,7 @@ def _render_nuevo():
     _form_html, _form_h = _build_editor_form(_p, _pubs, _prod_pubs_set, _cols, _cur_cols,
                                              metafields=_mf_editable, videos=[])
     components.html(_form_html, height=int(_form_h), scrolling=False)
-    components.html(_SW_FLOAT_JS, height=0)
+    components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)
 
 
 def _crear_modelo(data: dict):
@@ -2412,10 +2412,12 @@ _SW_FLOAT_JS = r"""<script>
   b.onclick=function(){ if(b.disabled) return; try{ P._swSave(); }catch(e){} b.textContent='Guardando…'; b.disabled=true;
     b.style.setProperty('background','#334155','important'); };
   var s=PD.createElement('script');
-  s.textContent="(function(){var W=window;if(W._swFloatInt)clearInterval(W._swFloatInt);"
+  s.textContent="(function(){var W=window;if(W._swFloatInt)clearInterval(W._swFloatInt);W._swFloatMiss=0;"
     +"var GRAD='linear-gradient(135deg,#5b7cfa,#2563eb)';"
     +"W._swFloatInt=setInterval(function(){try{var b=document.getElementById('sw-float-save');if(!b)return;"
-    +"if(!document.querySelector('.st-key-sw_savecmd')){b.remove();clearInterval(W._swFloatInt);return;}"
+    // Sólo quitar el botón tras VARIAS ausencias seguidas del input (así un rerun que tarda en
+    // remontar sw_savecmd no lo borra). Si el input reaparece, se resetea el contador.
+    +"if(!document.querySelector('.st-key-sw_savecmd')){ if(++W._swFloatMiss>=5){b.remove();clearInterval(W._swFloatInt);} return;} W._swFloatMiss=0;"
     +"if(b.textContent.indexOf('Guardando')===0)return;var d=!!W._swDirty;b.disabled=!d;"
     +"b.style.setProperty('background',d?GRAD:'#aab2c5','important');"
     +"b.style.boxShadow=d?'0 12px 30px rgba(37,99,235,.42)':'0 6px 16px rgba(15,23,42,.18)';"
@@ -3073,4 +3075,6 @@ def _render_editor(pid):
                                              metafields=_mf_editable, videos=_vid,
                                              img_metas=_img_metas, especs=_especs)
     components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
-    components.html(_SW_FLOAT_JS, height=0)   # botón flotante "Guardar y publicar"
+    # Nonce: fuerza re-ejecución del iframe en cada render → el botón flotante se RE-MONTA
+    # siempre (tras publicar, cambiar de producto, etc.), en vez de reusar un iframe estático.
+    components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)   # botón flotante "Guardar y publicar"
