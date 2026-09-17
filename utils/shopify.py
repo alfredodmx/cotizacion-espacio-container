@@ -864,6 +864,60 @@ def subir_imagen_archivo(filename, mimetype, filebytes) -> tuple:
     return _f.get("id"), _pv, None
 
 
+def subir_video_archivo(filename, mimetype, filebytes) -> tuple:
+    """Sube un VIDEO a Content > Files (staged upload VIDEO → fileCreate). Devuelve
+    (ref, preview_url, src, error). `ref` = 'shopify://files/videos/<filename>' — el valor que
+    guarda el bloque reel en el campo 'video'. Requiere write_files. El video puede quedar
+    PROCESÁNDOSE (preview/src vacíos por un rato); el ref igual queda válido."""
+    if not filebytes:
+        return None, None, None, "El archivo de video está vacío."
+    import requests
+    q1 = ("mutation($input:[StagedUploadInput!]!){ stagedUploadsCreate(input:$input){ "
+          "stagedTargets{ url resourceUrl parameters{ name value } } userErrors{ field message } } }")
+    _input = [{"filename": filename or "video.mp4", "mimeType": mimetype or "video/mp4",
+               "resource": "VIDEO", "fileSize": str(len(filebytes)), "httpMethod": "POST"}]
+    data, err = _graphql(q1, {"input": _input})
+    if err:
+        return None, None, None, err + _hint_files(err)
+    _res = (data or {}).get("stagedUploadsCreate") or {}
+    _ue = _res.get("userErrors") or []
+    if _ue:
+        _msg = "; ".join(e.get("message", "") for e in _ue)
+        return None, None, None, _msg + _hint_files(_msg)
+    _targets = _res.get("stagedTargets") or []
+    if not _targets:
+        return None, None, None, "Shopify no entregó un destino de subida para el video."
+    _t = _targets[0]
+    _url, _params, _resource_url = _t.get("url"), _t.get("parameters") or [], _t.get("resourceUrl")
+    try:
+        _form = [(p.get("name"), (None, p.get("value"))) for p in _params]
+        _form.append(("file", (filename or "video.mp4", filebytes, mimetype or "video/mp4")))
+        r = requests.post(_url, files=_form, timeout=1800)
+        if r.status_code not in (200, 201, 204):
+            return None, None, None, f"Subida al almacenamiento falló ({r.status_code}): {r.text[:150]}"
+    except Exception as e:
+        return None, None, None, f"Subida al almacenamiento: {e}"
+    q2 = ("mutation($files:[FileCreateInput!]!){ fileCreate(files:$files){ "
+          "files{ id fileStatus preview{ image{ url } } "
+          "... on Video { filename sources{ url mimeType height format } } } "
+          "userErrors{ field message } } }")
+    data2, err2 = _graphql(q2, {"files": [{"originalSource": _resource_url, "contentType": "VIDEO"}]})
+    if err2:
+        return None, None, None, err2 + _hint_files(err2)
+    _fc = (data2 or {}).get("fileCreate") or {}
+    _errs = _fc.get("userErrors") or []
+    if _errs:
+        _msg = "; ".join(e.get("message", "") for e in _errs)
+        return None, None, None, (_msg or "No se pudo crear el video.") + _hint_files(_msg)
+    _files = _fc.get("files") or []
+    if not _files:
+        return None, None, None, "Shopify no devolvió el video creado."
+    _f = _files[0]
+    _fn = _f.get("filename") or (filename or "video.mp4")
+    _pv = (((_f.get("preview") or {}).get("image") or {}).get("url")) or ""
+    return f"shopify://files/videos/{_fn}", _pv, _src_de_video_node(_f), None
+
+
 def set_metafield_referencia(pid, namespace, key, ref_gid, mtype="file_reference") -> tuple:
     """Fija (crea o actualiza) un metacampo de referencia (p.ej. imagen file_reference) del
     producto al recurso `ref_gid`. Usa metafieldsSet (idempotente por owner+namespace+key).
