@@ -2770,7 +2770,15 @@ def _render_reels():
     st.markdown(f'<div class="sw-reels-meta">Tema: <b>{_he(_info.get("theme_name"))}</b> '
                 f'<span class="sw-reels-badge {"is-draft" if _es_borrador else "is-live"}">'
                 f'{_rol_txt}</span> · sección <code>{_he(_info.get("section_type"))}</code> · '
-                f'{len(_work)} reel(s) · {len(_advisors)} asesor(es)</div>', unsafe_allow_html=True)
+                f'{len(_work)} reel(s) · {len(_advisors)} asesor(es)'
+                + (f' · {_info.get("n_secciones")} secciones con reels' if (_info.get("n_secciones") or 0) > 1 else "")
+                + '</div>', unsafe_allow_html=True)
+
+    with st.expander("Diagnóstico técnico (claves de los bloques del tema)"):
+        st.caption(f"Sección elegida: {_info.get('section_id')} · tipo bloque asesor: "
+                   f"{_info.get('advisor_type')} · {_info.get('n_secciones')} sección(es) con reels en el tema. "
+                   "Esto muestra las CLAVES reales de los bloques (para ajustar guardado si difieren).")
+        st.json(_info.get("raw_blocks") or [])
 
     if _advisors:
         st.markdown('<div class="sw-reels-h">Asesores</div>', unsafe_allow_html=True)

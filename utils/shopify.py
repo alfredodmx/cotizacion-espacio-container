@@ -1102,26 +1102,32 @@ def escribir_asset(theme_id, key, value) -> tuple:
     return False, f"Shopify {r.status_code}: {r.text[:200]}" + _scope_hint_themes(r.status_code)
 
 
-def _seccion_con_reels(obj):
-    """(section_id, section) de la 1ª sección con bloques 'reel' dentro de un JSON parseado."""
+# Tipos de bloque que son "asesor" (según cómo esté nombrado el bloque en el tema).
+_ADV_TYPES = ("advisor", "asesor", "asesora")
+
+
+def _secciones_con_reels(obj):
+    """TODAS las secciones que tienen algún bloque 'reel' en un JSON parseado. Devuelve
+    lista de (section_id, section)."""
     _secs = obj.get("sections") if isinstance(obj, dict) else None
     if not isinstance(_secs, dict):
-        return None, None
+        return []
+    _out = []
     for _sid, _sec in _secs.items():
         if not isinstance(_sec, dict):
             continue
         _blocks = _sec.get("blocks") or {}
         if isinstance(_blocks, dict) and any(
                 isinstance(_b, dict) and _b.get("type") == "reel" for _b in _blocks.values()):
-            return _sid, _sec
-    return None, None
+            _out.append((_sid, _sec))
+    return _out
 
 
 def _reels_en_tema(tema) -> tuple:
-    """Busca la sección de reels dentro de UN tema. Devuelve (info|None, error).
-    Un error != None es un fallo DURO (p.ej. scope o red). 'No encontrado' => (None, None)
-    para que el llamador siga probando otros temas. info incluye theme_id/theme_name/
-    theme_role para que la UI sepa si es el publicado o un borrador."""
+    """Busca la MEJOR sección de reels dentro de UN tema. Devuelve (info|None, error).
+    Puede haber VARIAS secciones con bloques 'reel' (p.ej. "Reels de video" y "Reels por
+    asesor"); se elige la que tiene bloques de asesor (y más reels). Un error != None es un
+    fallo DURO. 'No encontrado' => (None, None) para seguir probando otros temas."""
     import json as _json
     if not isinstance(tema, dict):
         return None, None
@@ -1129,14 +1135,13 @@ def _reels_en_tema(tema) -> tuple:
     _keys, err2 = listar_assets_json(_tid)
     if err2:
         return None, err2
-    # Los reels viven en la HOME, en settings_data (legacy) o en un section group; NO en los
-    # templates de producto/colección/carrito/etc. Acotamos para no gastar llamadas (rate limit
-    # de 2/s de Shopify): settings_data → index → otros templates/index.* → section groups.
+    # Los reels viven en la HOME, en settings_data (legacy) o en un section group.
     _sd = [k for k in _keys if k == "config/settings_data.json"]
     _idx = [k for k in _keys if k == "templates/index.json"]
     _idx2 = [k for k in _keys if k.startswith("templates/index.") and k not in _idx]
     _grp = [k for k in _keys if k.startswith("sections/") and k.endswith(".json")]
     _pri = _sd + _idx + _idx2 + _grp
+    _cands = []  # (n_advisors, n_reels, asset_key, sid, sec)
     for _key in _pri:
         _val, _e = leer_asset(_tid, _key)
         if _e or not _val:
@@ -1148,32 +1153,44 @@ def _reels_en_tema(tema) -> tuple:
         _cand = _obj
         if _key == "config/settings_data.json":
             _cand = _obj.get("current") if isinstance(_obj.get("current"), dict) else {}
-        _sid, _sec = _seccion_con_reels(_cand or {})
-        if _sec:
+        for _sid, _sec in _secciones_con_reels(_cand or {}):
             _blocks = _sec.get("blocks") or {}
-            _order = _sec.get("block_order") or list(_blocks.keys())
-            _reels, _advisors, _raw = [], [], None
-            for _bid in _order:
-                _b = _blocks.get(_bid)
-                if not isinstance(_b, dict):
-                    continue
-                _st = _b.get("settings") or {}
-                if _b.get("type") == "reel":
-                    if _raw is None:
-                        _raw = _b
-                    _reels.append({"id": _bid, "video": _st.get("video"),
-                                   "caption": _st.get("caption") or "",
-                                   "linked_product": _st.get("linked_product"),
-                                   "advisor_name": _st.get("advisor_name") or ""})
-                elif _b.get("type") == "advisor":
-                    _advisors.append({"id": _bid, "name": _st.get("name") or "",
-                                      "role": _st.get("role") or "", "video": _st.get("video")})
-            return ({"theme_id": _tid, "theme_name": tema.get("name") or "",
-                     "theme_role": str(tema.get("role") or ""), "asset_key": _key,
-                     "section_id": _sid, "section_type": _sec.get("type") or "",
-                     "block_order": _order, "reels": _reels, "advisors": _advisors,
-                     "raw_reel": _raw}, None)
-    return None, None
+            _nr = sum(1 for _b in _blocks.values() if isinstance(_b, dict) and _b.get("type") == "reel")
+            _na = sum(1 for _b in _blocks.values() if isinstance(_b, dict) and _b.get("type") in _ADV_TYPES)
+            _cands.append((_na, _nr, _key, _sid, _sec))
+    if not _cands:
+        return None, None
+    # Preferir la sección CON asesores (la "Reels por asesor"), luego la que tiene más reels.
+    _cands.sort(key=lambda c: (c[0] > 0, c[0], c[1]), reverse=True)
+    _na, _nr, _key, _sid, _sec = _cands[0]
+    _blocks = _sec.get("blocks") or {}
+    _order = _sec.get("block_order") or list(_blocks.keys())
+    _adv_type = next((_b.get("type") for _b in _blocks.values()
+                      if isinstance(_b, dict) and _b.get("type") in _ADV_TYPES), "advisor")
+    _reels, _advisors, _raw, _raw_blocks = [], [], None, []
+    for _bid in _order:
+        _b = _blocks.get(_bid)
+        if not isinstance(_b, dict):
+            continue
+        _st = _b.get("settings") or {}
+        if len(_raw_blocks) < 12:
+            _raw_blocks.append({"id": _bid, "type": _b.get("type"), "settings": _st})
+        if _b.get("type") == "reel":
+            if _raw is None:
+                _raw = _b
+            _reels.append({"id": _bid, "video": _st.get("video"),
+                           "caption": _st.get("caption") or "",
+                           "linked_product": _st.get("linked_product"),
+                           "advisor_name": _st.get("advisor_name") or ""})
+        elif _b.get("type") in _ADV_TYPES:
+            _advisors.append({"id": _bid, "name": _st.get("name") or "",
+                              "role": _st.get("role") or "", "video": _st.get("video")})
+    return ({"theme_id": _tid, "theme_name": tema.get("name") or "",
+             "theme_role": str(tema.get("role") or ""), "asset_key": _key,
+             "section_id": _sid, "section_type": _sec.get("type") or "",
+             "advisor_type": _adv_type, "block_order": _order, "reels": _reels,
+             "advisors": _advisors, "raw_reel": _raw, "raw_blocks": _raw_blocks,
+             "n_secciones": len(_cands)}, None)
 
 
 def leer_reels() -> tuple:
