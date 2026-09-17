@@ -2498,37 +2498,24 @@ def _reel_media_html(r):
     return '<div class="rlc-ph">SIN VIDEO<small>súbelo abajo</small></div>'
 
 
-def _reel_vid_options(files, current):
-    """<option> del selector de video: (sin video) + biblioteca de Files + el actual si no está."""
-    _cur = str(current or "")
-    _out = f'<option value=""{" selected" if not _cur else ""}>(sin video)</option>'
-    _refs = set()
-    for f in files:
-        _ref = str(f.get("ref") or "")
-        _sel = " selected" if _ref == _cur else ""
-        _out += f'<option value="{_he(_ref)}"{_sel}>{_he(f.get("filename") or _ref)}</option>'
-        _refs.add(_ref)
-    if _cur and _cur not in _refs:
-        _out += f'<option value="{_he(_cur)}" selected>{_he(_reel_video_filename(_cur))}</option>'
-    return _out
-
-
-def _reel_card_html(r, prod_opts, files):
-    """Una tarjeta de reel del editor HTML."""
+def _reel_card_html(r, prod_opts):
+    """Una tarjeta de reel del editor HTML (subida de video como en el editor de productos)."""
     _x = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
           'stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>')
     _grip = ('<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/>'
              '<circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/>'
              '<circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>')
+    _cam = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            'stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5V7z"/>'
+            '<rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>')
     return (
         f'<div class="rlc" draggable="false" data-id="{_he(r.get("id") or "")}" '
-        f'data-video="{_he(r.get("video") or "")}">'
+        f'data-video="{_he(r.get("video") or "")}" data-newkey="">'
         f'<div class="rlc-media"><div class="rlc-vidwrap">{_reel_media_html(r)}</div>'
         f'<button type="button" class="rlc-del" title="Eliminar reel">{_x}</button>'
         f'<span class="rlc-grip" title="Arrastrar para ordenar">{_grip}</span></div>'
         '<div class="rlc-body">'
-        '<label class="rlc-lbl">Video</label>'
-        f'<select class="rlc-vidsel ed-in">{_reel_vid_options(files, r.get("video"))}</select>'
+        f'<button type="button" class="rlc-change">{_cam}Cambiar video</button>'
         '<label class="rlc-lbl">Producto vinculado</label>'
         f'<select class="rlc-prod ed-in">{_reel_prod_select_html(prod_opts, r.get("linked_product"))}</select>'
         '<label class="rlc-lbl">Descripción</label>'
@@ -2538,28 +2525,20 @@ def _reel_card_html(r, prod_opts, files):
         '</div></div>')
 
 
-def _build_reels_form(work, prod_opts, adv_names, files):
+def _build_reels_form(work, prod_opts, adv_names):
     """Editor HTML de los reels (diseño como el editor de productos): tarjetas con video
-    reproducible, eliminar, arrastrar para ordenar, elegir el video de la biblioteca y producto
-    vinculado. El video se SUBE aparte (cargador nativo); aquí sólo se referencia. El guardado
-    va por el puente sw_reelscmd con METADATOS (sin archivos). Devuelve (html, alto)."""
-    import json as _json
+    reproducible, eliminar, arrastrar para ordenar, subir/cambiar video DESDE EL PC (igual que
+    las fotos/videos de productos) y producto vinculado. El guardado va por el puente
+    sw_reelscmd; los videos nuevos van en base64 (como en productos). Devuelve (html, alto)."""
     _add = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
             'stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>')
-    _cards = "".join(_reel_card_html(r, prod_opts, files) for r in work)
+    _cards = "".join(_reel_card_html(r, prod_opts) for r in work)
     if not _cards:
-        _cards = ('<div class="rl-empty">Aún no hay reels. Sube un video arriba y pulsa «Agregar reel».</div>')
+        _cards = ('<div class="rl-empty">Aún no hay reels. Pulsa «Agregar reel» para subir el primero '
+                  '(video vertical 9:16).</div>')
     _tpl = _reel_card_html({"id": None, "video": "", "caption": "", "advisor_name": "",
-                            "linked_product": "", "_pv": "", "_src": ""}, prod_opts, files)
+                            "linked_product": "", "_pv": "", "_src": ""}, prod_opts)
     _advs = "".join(f'<option value="{_he(n)}">' for n in sorted({a for a in adv_names if a}))
-    # Mapa ref→{src,pv} para actualizar la vista previa al cambiar el selector de video.
-    _vmap = {}
-    for f in files:
-        _vmap[str(f.get("ref") or "")] = {"src": f.get("src") or "", "pv": f.get("preview_url") or ""}
-    for r in work:
-        if r.get("video"):
-            _vmap.setdefault(str(r.get("video")), {"src": r.get("_src") or "", "pv": r.get("_pv") or ""})
-    _vmap_js = _json.dumps(_vmap)
     _html = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
@@ -2586,47 +2565,67 @@ def _build_reels_form(work, prod_opts, adv_names, files):
 .rlc-del{left:8px;} .rlc-grip{right:8px;cursor:grab;}
 .rlc-del:hover{background:#dc2626;} .rlc-del svg,.rlc-grip svg{width:16px;height:16px;}
 .rlc-body{padding:12px 13px 15px;display:flex;flex-direction:column;}
+.rlc-change{margin-bottom:6px;background:#eef2ff;color:#2563eb;border:1px solid #dbe3ff;border-radius:9px;padding:8px;
+  font-family:'Plus Jakarta Sans';font-weight:700;font-size:.76rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:6px;transition:background .15s;}
+.rlc-change:hover{background:#dbe3ff;} .rlc-change svg{width:15px;height:15px;}
 .rlc-lbl{font-size:.66rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.03em;margin:9px 0 4px;}
-.rlc-lbl:first-child{margin-top:0;}
 .ed-in{width:100%;border:1.5px solid #e2e8f0;border-radius:9px;padding:9px 10px;font-size:.84rem;font-family:inherit;
   background:#f8fafc;outline:none;color:#0f172a;}
 .ed-in:focus{border-color:#5b7cfa;background:#fff;} select.ed-in{cursor:pointer;}
 .rl-empty{grid-column:1/-1;color:#94a3b8;font-size:.88rem;padding:34px;text-align:center;border:1.5px dashed #cbd5e1;border-radius:14px;}
+.rl-msg{display:none;background:#fff1f2;border:1px solid #fca5a5;color:#b91c1c;border-radius:10px;padding:10px 13px;
+  font-size:.8rem;line-height:1.4;margin-bottom:12px;}
 </style></head><body><div id="rl-root">
 <div class="rl-top"><button type="button" id="rl-addbtn" class="rl-add">__ADD__ Agregar reel</button></div>
+<div id="rl-msg" class="rl-msg"></div>
 <div class="rl-grid" id="rl-grid">__CARDS__</div>
 <datalist id="rl-advs">__ADVS__</datalist>
 <template id="rl-tpl">__TPL__</template>
+<input type="file" id="rl-file" accept="video/*" style="display:none">
 </div>
 <script>
 (function(){
 var doc=document, P=window.parent;
-var grid=doc.getElementById('rl-grid'), addbtn=doc.getElementById('rl-addbtn'), tpl=doc.getElementById('rl-tpl');
-var VMAP=__VMAP__;
-function setCardVideo(card, ref){ var w=card.querySelector('.rlc-vidwrap'); var m=VMAP[ref]||{};
-  if(m.src){ w.innerHTML='<video preload="metadata" playsinline controls '+(m.pv?'poster="'+(m.pv+'').replace(/"/g,'&quot;')+'" ':'')+'src="'+(m.src+'').replace(/"/g,'&quot;')+'"></video>'; }
-  else if(m.pv){ w.innerHTML='<div class="rlc-ph" style="background:url(\''+(m.pv+'').replace(/'/g,'')+'\') center/cover;"></div>'; }
-  else if(ref){ w.innerHTML='<div class="rlc-ph">VIDEO<small>procesándose…</small></div>'; }
-  else { w.innerHTML='<div class="rlc-ph">SIN VIDEO<small>elige uno abajo</small></div>'; } }
+var grid=doc.getElementById('rl-grid'), fileIn=doc.getElementById('rl-file'),
+    addbtn=doc.getElementById('rl-addbtn'), tpl=doc.getElementById('rl-tpl'), msg=doc.getElementById('rl-msg');
+var newFiles={}, upMode={op:'',card:null};
+function uid(){ return 'n'+Math.random().toString(36).slice(2,10); }
+function fileB64(f){ return new Promise(function(res){ var r=new FileReader();
+  r.onload=function(){ try{ res((''+r.result).split(',')[1]||''); }catch(e){ res(''); } };
+  r.onerror=function(){ res(''); }; r.readAsDataURL(f); }); }
 function ensureEmpty(){ var e=grid.querySelector('.rl-empty'); if(e && grid.querySelectorAll('.rlc').length) e.remove();
-  if(!grid.querySelectorAll('.rlc').length && !grid.querySelector('.rl-empty')){ var d=doc.createElement('div'); d.className='rl-empty'; d.textContent='Aún no hay reels. Sube un video arriba y pulsa «Agregar reel».'; grid.appendChild(d); } }
+  if(!grid.querySelectorAll('.rlc').length && !grid.querySelector('.rl-empty')){ var d=doc.createElement('div'); d.className='rl-empty'; d.textContent='Aún no hay reels. Pulsa «Agregar reel» para subir el primero.'; grid.appendChild(d); } }
+function setCardVideo(card, url){ var w=card.querySelector('.rlc-vidwrap');
+  w.innerHTML='<video preload="metadata" playsinline controls src="'+(url+'').replace(/"/g,'&quot;')+'"></video>'; }
 function collect(){ var out=[]; [].slice.call(grid.querySelectorAll('.rlc')).forEach(function(c){
-  out.push({id:c.getAttribute('data-id')||'', video:c.getAttribute('data-video')||'',
+  out.push({id:c.getAttribute('data-id')||'', video:c.getAttribute('data-video')||'', newkey:c.getAttribute('data-newkey')||'',
     product:(c.querySelector('.rlc-prod')||{}).value||'', caption:(c.querySelector('.rlc-cap')||{}).value||'',
     advisor:(c.querySelector('.rlc-adv')||{}).value||''}); }); return out; }
 var _initial=JSON.stringify(collect());
-function setDirty(){ try{ P._swReelsDirty=(JSON.stringify(collect())!==_initial); }catch(e){} }
-/* Agregar reel (tarjeta vacía; se le elige el video del selector) */
-addbtn.addEventListener('click', function(){ var e=grid.querySelector('.rl-empty'); if(e)e.remove();
-  var node=tpl.content.firstElementChild.cloneNode(true); node.setAttribute('data-id',''); node.setAttribute('data-video','');
-  var sel=node.querySelector('.rlc-vidsel'); if(sel) sel.value=''; setCardVideo(node,''); grid.appendChild(node);
-  node.scrollIntoView({block:'nearest'}); setDirty(); });
-/* Elegir video del selector → actualiza data-video + vista previa */
-grid.addEventListener('change', function(e){ var s=e.target.closest?e.target.closest('.rlc-vidsel'):null; if(!s)return;
-  var c=s.closest('.rlc'); c.setAttribute('data-video', s.value||''); setCardVideo(c, s.value||''); setDirty(); });
-/* Eliminar */
-grid.addEventListener('click', function(e){ var dl=e.target.closest?e.target.closest('.rlc-del'):null; if(!dl)return;
-  dl.closest('.rlc').remove(); ensureEmpty(); setDirty(); });
+function dirty(){ return JSON.stringify(collect())!==_initial || Object.keys(newFiles).length>0; }
+function setDirty(){ try{ P._swReelsDirty=dirty(); }catch(e){} }
+function showMsg(t){ if(msg){ msg.textContent=t; msg.style.display='block'; } }
+function hideMsg(){ if(msg) msg.style.display='none'; }
+/* Subir/cambiar video (archivo local, como en productos) */
+addbtn.addEventListener('click', function(){ upMode={op:'add',card:null}; fileIn.value=''; fileIn.click(); });
+grid.addEventListener('click', function(e){
+  var ch=e.target.closest?e.target.closest('.rlc-change'):null;
+  if(ch){ upMode={op:'change',card:ch.closest('.rlc')}; fileIn.value=''; fileIn.click(); return; }
+  var dl=e.target.closest?e.target.closest('.rlc-del'):null;
+  if(dl){ var c=dl.closest('.rlc'); var nk=c.getAttribute('data-newkey'); if(nk&&newFiles[nk])delete newFiles[nk]; c.remove(); ensureEmpty(); setDirty(); }
+});
+fileIn.addEventListener('change', function(){
+  var f=this.files&&this.files[0]; if(!f) return;
+  if((f.type||'').indexOf('video')!==0){ showMsg('El archivo debe ser un video.'); return; }
+  var key=uid(); newFiles[key]=f; var url=URL.createObjectURL(f);
+  if(upMode.op==='change' && upMode.card){ var c=upMode.card; var old=c.getAttribute('data-newkey'); if(old&&newFiles[old]&&old!==key)delete newFiles[old];
+    c.setAttribute('data-newkey',key); setCardVideo(c,url); }
+  else { var e=grid.querySelector('.rl-empty'); if(e)e.remove();
+    var node=tpl.content.firstElementChild.cloneNode(true); node.setAttribute('data-id',''); node.setAttribute('data-video','');
+    node.setAttribute('data-newkey',key); grid.appendChild(node); setCardVideo(node,url); node.scrollIntoView({block:'nearest'}); }
+  this.value=''; hideMsg(); setDirty();
+});
 /* Reordenar por arrastre desde la manija (grip) */
 var dragEl=null;
 grid.addEventListener('mousedown', function(e){ var g=e.target.closest?e.target.closest('.rlc-grip'):null; if(!g)return; var c=g.closest('.rlc'); if(c)c.setAttribute('draggable','true'); });
@@ -2636,19 +2635,27 @@ grid.addEventListener('dragend', function(){ if(dragEl){ dragEl.classList.remove
 grid.addEventListener('dragover', function(e){ e.preventDefault(); if(!dragEl)return; var t=e.target.closest?e.target.closest('.rlc'):null; if(!t||t===dragEl)return;
   var r=t.getBoundingClientRect(); var before=(e.clientY < r.top + r.height/2); grid.insertBefore(dragEl, before?t:t.nextSibling); });
 grid.addEventListener('input', setDirty);
-/* Guardado (sólo metadatos): expone _swReelsSave al padre */
+grid.addEventListener('change', setDirty);
+/* Guardado: expone _swReelsSave al padre (lo llama el botón flotante) */
 function fire(payload){ try{ var W=P, D=W.document; var inp=D.querySelector('.st-key-sw_reelscmd input'); if(!inp)return;
   var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set; inp.focus({preventScroll:true});
   setter.call(inp, payload+'|'+Date.now()); inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true}));
   inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
   inp.dispatchEvent(new FocusEvent('blur',{bubbles:true})); inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true})); inp.blur(); }catch(e){} }
+function resetBtn(){ var b=P.document.getElementById('sw-reels-float'); if(b){ b.textContent='Guardar reels'; b.disabled=false; } }
 try{ P._swReelsDirty=false;
-  P._swReelsSave=function(){ try{
-    var cards=collect(); var missing=cards.filter(function(c){ return !c.video; }).length;
-    if(missing){ var b=P.document.getElementById('sw-reels-float'); if(b){b.textContent='Guardar reels';b.disabled=false;}
-      alert('Hay '+missing+' reel(s) sin video. Elige un video en cada uno o elimínalo.'); return; }
-    fire(JSON.stringify({reels:cards}));
-  }catch(e){ var b2=P.document.getElementById('sw-reels-float'); if(b2){b2.textContent='Guardar reels';b2.disabled=false;} } };
+  P._swReelsSave=async function(){ try{
+    var cards=collect(); var missing=cards.filter(function(c){ return !c.video && !c.newkey; }).length;
+    if(missing){ showMsg('Hay '+missing+' reel(s) sin video. Súbeles un video o elimínalos.'); resetBtn(); return; }
+    var keys=Object.keys(newFiles), tot=0, i;
+    for(i=0;i<keys.length;i++){ tot+=newFiles[keys[i]].size; }
+    if(tot>100*1024*1024){ showMsg('Los videos nuevos suman '+(tot/1048576).toFixed(0)+' MB. Máximo 100 MB por guardado — sube menos a la vez o comprímelos.'); resetBtn(); return; }
+    var nv=[], fb=P.document.getElementById('sw-reels-float');
+    for(i=0;i<keys.length;i++){ var k=keys[i]; if(fb) fb.textContent='Subiendo '+(i+1)+'/'+keys.length+'…';
+      var bb=await fileB64(newFiles[k]); if(bb) nv.push({key:k, name:newFiles[k].name, mime:(newFiles[k].type||'video/mp4'), b64:bb}); }
+    if(fb) fb.textContent='Guardando…';
+    fire(JSON.stringify({reels:cards, new_videos:nv}));
+  }catch(e){ resetBtn(); } };
 }catch(e){}
 /* Auto-ajuste del alto del iframe */
 function swResize(){ try{ var el=doc.getElementById('rl-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+6; var fe=window.frameElement; if(!fe)return;
@@ -2657,10 +2664,10 @@ setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,
 })();
 </script></body></html>"""
     _html = (_html.replace("__ADD__", _add).replace("__CARDS__", _cards)
-             .replace("__TPL__", _tpl).replace("__ADVS__", _advs).replace("__VMAP__", _vmap_js))
+             .replace("__TPL__", _tpl).replace("__ADVS__", _advs))
     _n = max(1, len(work))
     _rows = (_n + 2) // 3
-    return _html, 120 + _rows * 660
+    return _html, 120 + _rows * 620
 
 
 _SW_REELS_FLOAT_JS = r"""<script>
@@ -2778,7 +2785,7 @@ def _render_reels():
                             + (f'<div class="sw-reel-avr">{_he(_a.get("role"))}</div>'
                                if _a.get("role") else ""), unsafe_allow_html=True)
 
-    # ── Editor HTML de reels (elegir video/eliminar/reordenar/asociar producto) ──
+    # ── Editor HTML de reels (subir/cambiar video, eliminar, reordenar, asociar producto) ──
     _prods = st.session_state.get("sw_reels_prods")
     if _prods is None:
         _pl, _ = _shop.listar_productos(status="")
@@ -2788,48 +2795,9 @@ def _render_reels():
                                              for p in _prods]
     _adv_names = ([a.get("name") for a in _advisors if a.get("name")]
                   + [r.get("advisor_name") for r in _work if r.get("advisor_name")])
-    # Biblioteca de videos (Content > Files) para el selector de video de cada reel.
-    _files = st.session_state.get("sw_reels_files")
-    if _files is None:
-        _files, _ = _shop.listar_videos_files()
-        _files = _files or []
-        st.session_state["sw_reels_files"] = _files
 
-    if st.session_state.pop("sw_reels_upmsg", None):
-        st.success("Video(s) subido(s). Ya puedes elegirlos en el selector de cada reel.",
-                   icon=":material/check_circle:")
-
-    # Subir video (cargador NATIVO: los archivos grandes NO pueden ir por el puente de texto).
-    st.markdown('<div class="sw-reels-h">Subir video de reel</div>', unsafe_allow_html=True)
-    _up = st.file_uploader("Sube uno o varios videos verticales (MP4/MOV). Se agregan como reels nuevos.",
-                           type=["mp4", "mov", "m4v", "webm"], accept_multiple_files=True,
-                           key="sw_reels_up")
-    if _up:
-        if st.button(f"Subir {len(_up)} video(s) y crear reel(s)", key="sw_reels_upbtn",
-                     type="primary", icon=":material/cloud_upload:"):
-            _uperrs = []
-            with st.spinner(f"Subiendo {len(_up)} video(s) a Shopify…"):
-                for _f in _up:
-                    _ref, _pv3, _src3, _e = _shop.subir_video_archivo(
-                        _f.name, getattr(_f, "type", None) or "video/mp4", _f.getvalue())
-                    if _e or not _ref:
-                        _uperrs.append(f"{_f.name}: {_e or 'no se pudo subir'}")
-                        continue
-                    _files.append({"filename": _f.name, "ref": _ref,
-                                   "preview_url": _pv3 or "", "src": _src3 or ""})
-                    _work.append({"_k": _uuid.uuid4().hex[:8], "id": None, "video": _ref,
-                                  "caption": "", "linked_product": "", "advisor_name": "",
-                                  "_pv": _pv3 or "", "_src": _src3 or ""})
-            st.session_state["sw_reels_files"] = _files
-            st.session_state["sw_reels_work"] = _work
-            if _uperrs:
-                st.session_state["sw_reels_errs"] = _uperrs
-            else:
-                st.session_state["sw_reels_upmsg"] = True
-            st.rerun()
-
-    st.markdown('<div class="sw-reels-h">Reels</div>', unsafe_allow_html=True)
-    # Puente de guardado (input oculto sw_reelscmd; sólo METADATOS — el video ya está en Files).
+    # Puente de guardado (input oculto sw_reelscmd; se auto-limpia tras procesar). Los videos
+    # nuevos van en base64 dentro del payload, igual que las fotos/videos del editor de productos.
     st.markdown("<style>.st-key-sw_reelscmd{position:fixed!important;left:-9999px!important;"
                 "width:1px!important;height:1px!important;opacity:0!important;}</style>",
                 unsafe_allow_html=True)
@@ -2847,27 +2815,46 @@ def _render_reels():
             except Exception:
                 _data = None
             if _data is not None:
-                _reels = []
-                for _c in (_data.get("reels") or []):
-                    _vid = _c.get("video")
-                    if not _vid and not _c.get("id"):
-                        continue
-                    _reels.append({"id": _c.get("id") or None, "video": _vid,
-                                   "caption": _c.get("caption") or "",
-                                   "linked_product": _c.get("product") or "",
-                                   "advisor_name": _c.get("advisor") or ""})
-                with st.spinner("Guardando los reels en el tema (con respaldo)…"):
+                _errs, _refmap = [], {}
+                _nv = _data.get("new_videos") or []
+                _spin = (f"Subiendo {len(_nv)} video(s) y guardando los reels…" if _nv
+                         else "Guardando los reels…")
+                with st.spinner(_spin):
+                    for _v in _nv:
+                        try:
+                            _vb = base64.b64decode(_v.get("b64") or "")
+                        except Exception:
+                            _vb = b""
+                        if not _vb:
+                            continue
+                        _ref, _pv3, _src3, _e = _shop.subir_video_archivo(
+                            _v.get("name") or "video.mp4", _v.get("mime") or "video/mp4", _vb)
+                        if _e or not _ref:
+                            _errs.append(_e or "No se pudo subir un video.")
+                        else:
+                            _refmap[_v.get("key")] = _ref
+                    _reels = []
+                    for _c in (_data.get("reels") or []):
+                        _vid = _refmap.get(_c.get("newkey")) if _c.get("newkey") else _c.get("video")
+                        if not _vid and not _c.get("id"):
+                            continue   # reel nuevo sin video → se ignora
+                        _reels.append({"id": _c.get("id") or None, "video": _vid,
+                                       "caption": _c.get("caption") or "",
+                                       "linked_product": _c.get("product") or "",
+                                       "advisor_name": _c.get("advisor") or ""})
                     _ok, _serr, _bk = _shop.guardar_reels(
                         _info.get("theme_id"), _info.get("asset_key"),
                         _info.get("section_id"), _reels)
-                if _ok:
+                    if not _ok:
+                        _errs.append(_serr or "No se pudo guardar la sección de reels.")
+                if _errs:
+                    st.session_state["sw_reels_errs"] = _errs
+                else:
                     st.session_state["sw_reels_saved"] = True
                     _reels_clear_state()
-                else:
-                    st.session_state["sw_reels_errs"] = [_serr or "No se pudo guardar la sección de reels."]
                 st.rerun()
 
-    _form_html, _form_h = _build_reels_form(_work, _prod_opts, _adv_names, _files)
+    _form_html, _form_h = _build_reels_form(_work, _prod_opts, _adv_names)
     components.html(_form_html, height=int(_form_h), scrolling=False)
     # Nonce: re-monta el botón flotante «Guardar reels» en cada render.
     components.html(_SW_REELS_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)
