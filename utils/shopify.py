@@ -892,7 +892,7 @@ def subir_video_archivo(filename, mimetype, filebytes) -> tuple:
     try:
         _form = [(p.get("name"), (None, p.get("value"))) for p in _params]
         _form.append(("file", (filename or "video.mp4", filebytes, mimetype or "video/mp4")))
-        r = requests.post(_url, files=_form, timeout=1800)
+        r = requests.post(_url, files=_form, timeout=600)
         if r.status_code not in (200, 201, 204):
             return None, None, None, f"Subida al almacenamiento falló ({r.status_code}): {r.text[:150]}"
     except Exception as e:
