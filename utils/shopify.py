@@ -1391,15 +1391,17 @@ def guardar_reels(theme_id, asset_key, section_id, reels, backup=True, prod_hand
             _vid = _stt.get("video", "")
         _stt["video"] = _vid
         _stt["caption"] = _r.get("caption", "") or ""
-        # El setting 'product' (id="linked_product") se guarda como STRING con el ID NUMÉRICO del
-        # producto ("7418404794558") — NO como int (da 422 "must be a string") ni como gid (se
-        # acepta pero el tema no lo resuelve). SEGURIDAD: si viene VACÍO en un reel que YA tenía
-        # producto, se CONSERVA el valor previo (nunca borrar vínculos por un fallo de round-trip).
+        # El setting 'product' de ESTE tema guarda el HANDLE del producto ("cabana-alerce"),
+        # NO el id ni el gid (confirmado con el diagnóstico: un reel asignado desde Shopify guarda
+        # el handle; con id numérico o gid la etiqueta NO aparece). Convertimos id→handle con
+        # prod_handles. SEGURIDAD: si viene VACÍO en un reel que YA tenía producto, se CONSERVA.
         _lp = str(_r.get("linked_product", "") or "").strip()
         if _lp.startswith("gid://"):
             _lp = _lp.rsplit("/", 1)[-1]
-        if _lp.isdigit():
-            _stt["linked_product"] = _lp   # id numérico como string
+        if _lp:
+            if _lp.isdigit():
+                _lp = (prod_handles or {}).get(_lp) or _lp   # id → handle (lo que espera el tema)
+            _stt["linked_product"] = _lp
         elif "linked_product" not in _stt:
             _stt["linked_product"] = ""   # reel NUEVO sin producto
         _stt["advisor_name"] = _r.get("advisor_name", "") or ""
