@@ -1390,12 +1390,15 @@ def guardar_reels(theme_id, asset_key, section_id, reels, backup=True) -> tuple:
             _vid = _stt.get("video", "")
         _stt["video"] = _vid
         _stt["caption"] = _r.get("caption", "") or ""
-        # El setting 'product' de Shopify se guarda como ENTERO (id numérico), no como texto;
-        # si va como string el tema no lo resuelve. Acepta id numérico o gid://.../<id>.
+        # El setting 'product' de Shopify (API 2024+) se guarda como STRING con el GID del
+        # producto: 'gid://shopify/Product/<id>'. Un id numérico suelto NO lo resuelve el tema.
         _lp = str(_r.get("linked_product", "") or "").strip()
-        if _lp.startswith("gid://"):
-            _lp = _lp.rsplit("/", 1)[-1]
-        _stt["linked_product"] = int(_lp) if _lp.isdigit() else ""
+        if _lp.isdigit():
+            _stt["linked_product"] = f"gid://shopify/Product/{_lp}"
+        elif _lp.startswith("gid://"):
+            _stt["linked_product"] = _lp
+        else:
+            _stt["linked_product"] = ""
         _stt["advisor_name"] = _r.get("advisor_name", "") or ""
         _new_blocks[_bid] = {"type": "reel", "settings": _stt}
         _new_reel_ids.append(_bid)

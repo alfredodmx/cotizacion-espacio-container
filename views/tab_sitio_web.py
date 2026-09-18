@@ -2747,9 +2747,13 @@ def _render_reels():
         _work = []
         for _r in _info.get("reels", []):
             _rv = _vids.get(str(_r.get("video"))) or {}
+            # linked_product puede venir como gid://shopify/Product/<id> o id numérico → dejar
+            # sólo el id numérico para que el <select> de productos lo preseleccione.
+            _lp = str(_r.get("linked_product") or "").strip()
+            _lp = _lp.rsplit("/", 1)[-1] if _lp.startswith("gid://") else _lp
             _work.append({"_k": _uuid.uuid4().hex[:8], "id": _r.get("id"),
                           "video": _r.get("video"), "caption": _r.get("caption") or "",
-                          "linked_product": str(_r.get("linked_product") or ""),
+                          "linked_product": _lp,
                           "advisor_name": _r.get("advisor_name") or "",
                           "_pv": _rv.get("preview_url") or "", "_src": _rv.get("src") or ""})
         st.session_state["sw_reels_work"] = _work
