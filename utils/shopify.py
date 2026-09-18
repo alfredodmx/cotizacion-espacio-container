@@ -1334,35 +1334,6 @@ def resolver_videos(video_ids) -> tuple:
     return out, None
 
 
-def _reel_lp_formatter(blocks, prod_handles):
-    """Devuelve una función id_numérico→valor de `linked_product` que REPLICA el formato que ya
-    usa un reel existente con producto (asignado desde Shopify): gid, id numérico o handle. Si no
-    hay ninguno de muestra, usa el id numérico como string. Así no adivinamos el formato."""
-    _sample = None
-    for _b in (blocks or {}).values():
-        if not isinstance(_b, dict) or _b.get("type") != "reel":
-            continue
-        _pv = (_b.get("settings") or {}).get("linked_product")
-        if _pv not in (None, "", 0):
-            _sample = str(_pv).strip()
-            break
-    _handles = prod_handles or {}
-
-    def _fmt(_idnum):
-        _idn = str(_idnum or "").strip()
-        if not _idn:
-            return ""
-        if _sample:
-            if _sample.startswith("gid://"):
-                return f"gid://shopify/Product/{_idn}"
-            if _sample.isdigit():
-                return _idn
-            # el tema guarda el HANDLE del producto (texto) → usar el handle si lo tenemos
-            return _handles.get(_idn) or _idn
-        return _idn   # sin muestra: id numérico como string
-    return _fmt
-
-
 def guardar_reels(theme_id, asset_key, section_id, reels, backup=True, prod_handles=None) -> tuple:
     """FASE 2 — reescribe los bloques 'reel' de la sección en el asset del tema (read-modify-
     write con respaldo). `reels` es la lista FINAL en ORDEN: cada uno {id?, video, caption,
@@ -1407,7 +1378,6 @@ def guardar_reels(theme_id, asset_key, section_id, reels, backup=True, prod_hand
     _no_reel = [bid for bid in _order if isinstance(_blocks.get(bid), dict)
                 and _blocks[bid].get("type") != "reel"]
     _new_blocks = {bid: _blocks[bid] for bid in _no_reel}
-    _fmt_lp = _reel_lp_formatter(_blocks, prod_handles)   # formato de linked_product del tema
     _new_reel_ids = []
     for _r in (reels or []):
         _bid = _r.get("id")
@@ -1421,14 +1391,15 @@ def guardar_reels(theme_id, asset_key, section_id, reels, backup=True, prod_hand
             _vid = _stt.get("video", "")
         _stt["video"] = _vid
         _stt["caption"] = _r.get("caption", "") or ""
-        # 'linked_product' se guarda con el MISMO formato que ya usa el tema (detectado de un
-        # reel existente con producto). SEGURIDAD: si viene VACÍO en un reel que YA tenía
+        # El setting 'product' (id="linked_product") se guarda como STRING con el ID NUMÉRICO del
+        # producto ("7418404794558") — NO como int (da 422 "must be a string") ni como gid (se
+        # acepta pero el tema no lo resuelve). SEGURIDAD: si viene VACÍO en un reel que YA tenía
         # producto, se CONSERVA el valor previo (nunca borrar vínculos por un fallo de round-trip).
         _lp = str(_r.get("linked_product", "") or "").strip()
         if _lp.startswith("gid://"):
             _lp = _lp.rsplit("/", 1)[-1]
         if _lp.isdigit():
-            _stt["linked_product"] = _fmt_lp(_lp)
+            _stt["linked_product"] = _lp   # id numérico como string
         elif "linked_product" not in _stt:
             _stt["linked_product"] = ""   # reel NUEVO sin producto
         _stt["advisor_name"] = _r.get("advisor_name", "") or ""
