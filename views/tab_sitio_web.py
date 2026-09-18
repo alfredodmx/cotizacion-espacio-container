@@ -2455,7 +2455,7 @@ _SW_REELS_CSS = """<style>
 def _reels_clear_state():
     for _k in ("sw_reels", "sw_reels_err", "sw_reels_vids", "sw_reels_work",
                "sw_reels_workkey", "sw_reels_base", "sw_reels_files", "sw_reels_prods",
-               "sw_reel_edit_k"):
+               "sw_reels_pub", "sw_reel_edit_k"):
         st.session_state.pop(_k, None)
 
 
@@ -2742,8 +2742,20 @@ def _render_reels():
         _pl, _ = _shop.listar_productos(status="")
         _prods = _pl or []
         st.session_state["sw_reels_prods"] = _prods
-    _prod_opts = [("", "(sin producto)")] + [(str(p.get("id")), (p.get("title") or f"#{p.get('id')}"))
-                                             for p in _prods]
+    # Set de productos PUBLICADOS en la tienda online: Shopify SOLO muestra la etiqueta del
+    # producto en el reel si está publicado (un 'product' setting no resuelve productos no
+    # publicados). Los marcamos en el selector para que el usuario sepa cuáles funcionarán.
+    _pub = st.session_state.get("sw_reels_pub")
+    if _pub is None:
+        _pub, _ = _shop.listar_ids_publicados()
+        st.session_state["sw_reels_pub"] = _pub  # set | None (None = no se pudo saber)
+    _prod_opts = [("", "(sin producto)")]
+    for p in _prods:
+        _pid = str(p.get("id"))
+        _lbl = p.get("title") or f"#{_pid}"
+        if isinstance(_pub, set) and _pid not in _pub:
+            _lbl += "  —  ⚠ NO PUBLICADO"
+        _prod_opts.append((_pid, _lbl))
     _prod_handles = {str(p.get("id")): (p.get("handle") or "") for p in _prods if p.get("id")}
     _id_by_handle = {(p.get("handle") or ""): str(p.get("id")) for p in _prods if p.get("handle")}
     _prod_ids = {str(p.get("id")) for p in _prods if p.get("id")}
@@ -2797,10 +2809,32 @@ def _render_reels():
                 + (f' · {_info.get("n_secciones")} secciones con reels' if (_info.get("n_secciones") or 0) > 1 else "")
                 + '</div>', unsafe_allow_html=True)
 
-    with st.expander("Diagnóstico técnico (claves de los bloques del tema)"):
+    # Aviso: la etiqueta de producto en el reel SÓLO aparece si el producto está publicado.
+    _no_pub = []
+    if isinstance(_pub, set):
+        for _r in _work:
+            _pid = str(_r.get("linked_product") or "")
+            if _pid and _pid not in _pub:
+                _no_pub.append(_pid)
+    if _no_pub:
+        st.warning(f"{len(_no_pub)} reel(s) tienen un producto **NO publicado** en la tienda online. "
+                   "Shopify **no muestra la etiqueta** de un producto no publicado en el reel. "
+                   "Publica ese producto (SITIO WEB → editar producto → estado **Activo** / canal **Online Store**) "
+                   "para que aparezca la etiqueta.", icon=":material/warning:")
+
+    with st.expander("Diagnóstico técnico (bloques del tema + estado del producto)"):
         st.caption(f"Sección elegida: {_info.get('section_id')} · tipo bloque asesor: "
-                   f"{_info.get('advisor_type')} · {_info.get('n_secciones')} sección(es) con reels en el tema. "
-                   "Esto muestra las CLAVES reales de los bloques (para ajustar guardado si difieren).")
+                   f"{_info.get('advisor_type')} · {_info.get('n_secciones')} sección(es) con reels.")
+        if isinstance(_pub, set):
+            _lines = []
+            for _r in _work:
+                _pid = str(_r.get("linked_product") or "")
+                if _pid:
+                    _lines.append(f"- reel «{_r.get('advisor_name') or _reel_video_filename(_r.get('video'))}»"
+                                  f" → producto {_pid}: {'PUBLICADO ✅' if _pid in _pub else 'NO PUBLICADO ⚠'}")
+            if _lines:
+                st.markdown("**Estado de publicación de los productos vinculados:**\n\n" + "\n".join(_lines))
+        st.markdown("**Claves crudas de los bloques (del tema):**")
         st.json(_info.get("raw_blocks") or [])
 
     if _advisors:
