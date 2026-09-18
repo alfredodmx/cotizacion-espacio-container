@@ -2805,6 +2805,7 @@ def _render_reels():
         st.session_state["sw_reels_prods"] = _prods
     _prod_opts = [("", "(sin producto)")] + [(str(p.get("id")), (p.get("title") or f"#{p.get('id')}"))
                                              for p in _prods]
+    _prod_handles = {str(p.get("id")): (p.get("handle") or "") for p in _prods if p.get("id")}
     _adv_names = ([a.get("name") for a in _advisors if a.get("name")]
                   + [r.get("advisor_name") for r in _work if r.get("advisor_name")])
 
@@ -2856,7 +2857,7 @@ def _render_reels():
                                        "advisor_name": _c.get("advisor") or ""})
                     _ok, _serr, _bk = _shop.guardar_reels(
                         _info.get("theme_id"), _info.get("asset_key"),
-                        _info.get("section_id"), _reels)
+                        _info.get("section_id"), _reels, prod_handles=_prod_handles)
                     if not _ok:
                         _errs.append(_serr or "No se pudo guardar la sección de reels.")
                 if _errs:
