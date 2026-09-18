@@ -2623,7 +2623,9 @@ fileIn.addEventListener('change', function(){
     c.setAttribute('data-newkey',key); setCardVideo(c,url); }
   else { var e=grid.querySelector('.rl-empty'); if(e)e.remove();
     var node=tpl.content.firstElementChild.cloneNode(true); node.setAttribute('data-id',''); node.setAttribute('data-video','');
-    node.setAttribute('data-newkey',key); grid.appendChild(node); setCardVideo(node,url); node.scrollIntoView({block:'nearest'}); }
+    node.setAttribute('data-newkey',key);
+    grid.insertBefore(node, grid.firstChild);   // nuevo reel PRIMERO (se ve de inmediato en «Todos» de la web)
+    setCardVideo(node,url); node.scrollIntoView({block:'nearest'}); }
   this.value=''; hideMsg(); setDirty();
 });
 /* Reordenar por arrastre desde la manija (grip) */
