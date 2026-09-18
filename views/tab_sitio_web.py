@@ -2736,6 +2736,29 @@ def _render_reels():
         return
 
     _advisors = _info.get("advisors", [])
+    # Productos (para el selector y para normalizar el producto guardado → id numérico).
+    _prods = st.session_state.get("sw_reels_prods")
+    if _prods is None:
+        _pl, _ = _shop.listar_productos(status="")
+        _prods = _pl or []
+        st.session_state["sw_reels_prods"] = _prods
+    _prod_opts = [("", "(sin producto)")] + [(str(p.get("id")), (p.get("title") or f"#{p.get('id')}"))
+                                             for p in _prods]
+    _prod_handles = {str(p.get("id")): (p.get("handle") or "") for p in _prods if p.get("id")}
+    _id_by_handle = {(p.get("handle") or ""): str(p.get("id")) for p in _prods if p.get("handle")}
+    _prod_ids = {str(p.get("id")) for p in _prods if p.get("id")}
+
+    def _lp_a_id(_v):
+        """Normaliza el valor guardado de linked_product (gid / id / handle) a id numérico."""
+        _s = str(_v or "").strip()
+        if not _s:
+            return ""
+        if _s.startswith("gid://"):
+            return _s.rsplit("/", 1)[-1]
+        if _s.isdigit():
+            return _s
+        return _id_by_handle.get(_s, _s)   # handle → id (si lo conocemos)
+
     # Copia de trabajo (editable) — se reconstruye si cambió la sección/tema.
     _sig = f"{_info.get('theme_id')}|{_info.get('asset_key')}|{_info.get('section_id')}"
     if st.session_state.get("sw_reels_workkey") != _sig:
@@ -2747,13 +2770,9 @@ def _render_reels():
         _work = []
         for _r in _info.get("reels", []):
             _rv = _vids.get(str(_r.get("video"))) or {}
-            # linked_product puede venir como gid://shopify/Product/<id> o id numérico → dejar
-            # sólo el id numérico para que el <select> de productos lo preseleccione.
-            _lp = str(_r.get("linked_product") or "").strip()
-            _lp = _lp.rsplit("/", 1)[-1] if _lp.startswith("gid://") else _lp
             _work.append({"_k": _uuid.uuid4().hex[:8], "id": _r.get("id"),
                           "video": _r.get("video"), "caption": _r.get("caption") or "",
-                          "linked_product": _lp,
+                          "linked_product": _lp_a_id(_r.get("linked_product")),
                           "advisor_name": _r.get("advisor_name") or "",
                           "_pv": _rv.get("preview_url") or "", "_src": _rv.get("src") or ""})
         st.session_state["sw_reels_work"] = _work
@@ -2798,14 +2817,6 @@ def _render_reels():
                                if _a.get("role") else ""), unsafe_allow_html=True)
 
     # ── Editor HTML de reels (subir/cambiar video, eliminar, reordenar, asociar producto) ──
-    _prods = st.session_state.get("sw_reels_prods")
-    if _prods is None:
-        _pl, _ = _shop.listar_productos(status="")
-        _prods = _pl or []
-        st.session_state["sw_reels_prods"] = _prods
-    _prod_opts = [("", "(sin producto)")] + [(str(p.get("id")), (p.get("title") or f"#{p.get('id')}"))
-                                             for p in _prods]
-    _prod_handles = {str(p.get("id")): (p.get("handle") or "") for p in _prods if p.get("id")}
     _adv_names = ([a.get("name") for a in _advisors if a.get("name")]
                   + [r.get("advisor_name") for r in _work if r.get("advisor_name")])
 

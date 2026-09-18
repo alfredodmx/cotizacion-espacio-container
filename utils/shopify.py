@@ -1422,11 +1422,15 @@ def guardar_reels(theme_id, asset_key, section_id, reels, backup=True, prod_hand
         _stt["video"] = _vid
         _stt["caption"] = _r.get("caption", "") or ""
         # 'linked_product' se guarda con el MISMO formato que ya usa el tema (detectado de un
-        # reel existente con producto): gid, id numérico o handle. Aceptamos id numérico o gid.
+        # reel existente con producto). SEGURIDAD: si viene VACÍO en un reel que YA tenía
+        # producto, se CONSERVA el valor previo (nunca borrar vínculos por un fallo de round-trip).
         _lp = str(_r.get("linked_product", "") or "").strip()
         if _lp.startswith("gid://"):
             _lp = _lp.rsplit("/", 1)[-1]
-        _stt["linked_product"] = _fmt_lp(_lp) if _lp.isdigit() else ""
+        if _lp.isdigit():
+            _stt["linked_product"] = _fmt_lp(_lp)
+        elif "linked_product" not in _stt:
+            _stt["linked_product"] = ""   # reel NUEVO sin producto
         _stt["advisor_name"] = _r.get("advisor_name", "") or ""
         _new_blocks[_bid] = {"type": "reel", "settings": _stt}
         _new_reel_ids.append(_bid)
