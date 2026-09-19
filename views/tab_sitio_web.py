@@ -2031,7 +2031,9 @@ def render_tab_sitio_web(**kwargs):
         "Archivados":    ("archived", None),
         "Todos":         ("", None),
     }
-    _c1, _c2, _c3 = st.columns([3.6, 1, 1.4], vertical_alignment="bottom")
+    # (El antiguo botón morado "Nuevo modelo" se quitó: ahora se crea con la tarjeta
+    #  prepicada "Nuevo modelo" que va al final de la grilla — _new_model_card_html.)
+    _c1, _c2 = st.columns([4.6, 1], vertical_alignment="bottom")
     with _c1:
         st.markdown(
             "<style>.st-key-sw_estado label,.st-key-sw_estado label *{font-family:Montserrat,sans-serif!important;"
@@ -2047,14 +2049,6 @@ def render_tab_sitio_web(**kwargs):
             st.session_state.pop("sw_cols", None)
             st.session_state.pop("sw_pubs", None)
             st.session_state.pop("sw_pubs_err", None)
-            st.rerun()
-    with _c3:
-        if st.button("Nuevo modelo", key="sw_new_open", use_container_width=True, type="primary",
-                     icon=":material/villa:"):
-            _clear_editor_state()
-            for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_new_")]:
-                st.session_state.pop(_k, None)
-            st.session_state["sw_new"] = True
             st.rerun()
     _status, _filtro_estado = _opts[_lbl]
 

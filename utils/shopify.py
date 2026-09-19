@@ -633,7 +633,7 @@ def productos_de_coleccion(collection_id) -> tuple:
     q = ("query($id:ID!){ collection(id:$id){ sortOrder "
          "products(first:250){ nodes { id legacyResourceId title status handle "
          "featuredImage { url } priceRangeV2 { minVariantPrice { amount } maxVariantPrice { amount } } "
-         "images(first:1){ nodes { id } } totalInventory } } } } }")
+         "} } } }")
     data, err = _graphql(q, {"id": _gid_collection(collection_id)})
     if err:
         return [], "", err
