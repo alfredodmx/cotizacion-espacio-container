@@ -1229,6 +1229,17 @@ def _note_interes(note) -> str:
     return _m.group(1).strip() if _m else ""
 
 
+def _note_formulario(note) -> str:
+    """Extrae el FORMULARIO que el sitio guarda en la NOTA ('Formulario: FORMULARIO COTIZA
+    · …'). Shopify ignora la etiqueta desde el formulario público, así que el formulario
+    viaja en la nota. Mapea al nombre bonito del CRM; '' si la nota no lo trae."""
+    _m = _re.search(r"formulario\s*[:\-]\s*(.+?)(?:\s*·|\s*$)", str(note or ""), _re.I)
+    if not _m:
+        return ""
+    _raw = _m.group(1).strip()
+    return _SHOPIFY_TAG_ORIGEN.get(_raw.lower(), _raw)
+
+
 def _note_tel(note) -> str:
     """Extrae el WhatsApp que el formulario guarda en la NOTA del cliente."""
     _m = _re.search(r"(?:whatsapp|tel[eé]fono|fono|celular)\s*[:\-]?\s*([+()\d][\d\s()\-+]{6,})",
@@ -1263,6 +1274,8 @@ def _shopify_form_lookup():
             _lbl = _origen_desde_tags(_c.get("tags"))
             _form = "" if _lbl == "Shopify" else _lbl
             _note = _c.get("note") or ""
+            if not _form:                       # Shopify ignora la etiqueta → léelo de la nota
+                _form = _note_formulario(_note)
             _tel = str(_c.get("phone") or ((_c.get("default_address") or {}).get("phone")) or "").strip()
             if not _tel:
                 _tel = _note_tel(_note)
