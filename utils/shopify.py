@@ -1394,16 +1394,14 @@ def guardar_reels(theme_id, asset_key, section_id, reels, backup=True, prod_hand
         # El setting 'product' de ESTE tema guarda el HANDLE del producto ("cabana-alerce"),
         # NO el id ni el gid (confirmado con el diagnóstico: un reel asignado desde Shopify guarda
         # el handle; con id numérico o gid la etiqueta NO aparece). Convertimos id→handle con
-        # prod_handles. SEGURIDAD: si viene VACÍO en un reel que YA tenía producto, se CONSERVA.
+        # prod_handles. Si viene VACÍO se DESVINCULA (queda ""); la preselección del selector ya
+        # normaliza handle→id, así que "(sin producto)" es una acción intencional del usuario.
         _lp = str(_r.get("linked_product", "") or "").strip()
         if _lp.startswith("gid://"):
             _lp = _lp.rsplit("/", 1)[-1]
-        if _lp:
-            if _lp.isdigit():
-                _lp = (prod_handles or {}).get(_lp) or _lp   # id → handle (lo que espera el tema)
-            _stt["linked_product"] = _lp
-        elif "linked_product" not in _stt:
-            _stt["linked_product"] = ""   # reel NUEVO sin producto
+        if _lp and _lp.isdigit():
+            _lp = (prod_handles or {}).get(_lp) or _lp   # id → handle (lo que espera el tema)
+        _stt["linked_product"] = _lp   # "" = sin producto (permite quitar el vínculo)
         _stt["advisor_name"] = _r.get("advisor_name", "") or ""
         _new_blocks[_bid] = {"type": "reel", "settings": _stt}
         _new_reel_ids.append(_bid)
