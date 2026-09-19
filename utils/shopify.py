@@ -1459,4 +1459,8 @@ def a_lead(c: dict) -> dict:
         "direccion": str(_addr.get("address1") or "").strip(),
         "comuna": str(_addr.get("city") or "").strip(),
         "region": str(_addr.get("province") or "").strip(),
+        # Etiquetas del cliente en Shopify (coma-separadas). Sirven para clasificar el
+        # ORIGEN del lead: cada formulario del sitio pone su propia etiqueta (p.ej.
+        # "FORMULARIO COTIZA") y el CRM la usa para distinguir de qué formulario vino.
+        "tags": str(c.get("tags") or "").strip(),
     }

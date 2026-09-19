@@ -1168,9 +1168,10 @@ def _kpi(label, valor, color="#0f172a"):
 
 
 _ORIGEN_COLORS = {
-    "shopify": ("#ede9fe", "#6d28d9"),
-    "web":     ("#e0f2fe", "#0369a1"),
-    "manual":  ("#f1f5f9", "#475569"),
+    "shopify":    ("#ede9fe", "#6d28d9"),
+    "web":        ("#e0f2fe", "#0369a1"),
+    "manual":     ("#f1f5f9", "#475569"),
+    "formulario": ("#ffedd5", "#c2410c"),   # leads de los formularios del sitio (Shopify)
 }
 
 
@@ -1184,6 +1185,7 @@ def _origen_pill(origen: str) -> str:
 # Facebook, TikTok, Instagram (solo con que el lead llegue con ese `origen`).
 _FUENTE_META = {
     "shopify":    ("Shopify",    '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>', "#6d28d9", "rgba(109,40,217,.12)"),
+    "formulario cotiza": ("Formulario Cotiza", '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/>', "#c2410c", "rgba(245,110,20,.13)"),
     "importado":  ("Importado",  '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>', "#0369a1", "rgba(3,105,161,.12)"),
     "manual":     ("Manual",     '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>', "#475569", "rgba(100,116,139,.12)"),
     "web":        ("Web",        '<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/>', "#0891b2", "rgba(8,145,178,.12)"),
@@ -1894,9 +1896,31 @@ def _render_pipeline(data: list, msel: bool = False):
                 unsafe_allow_html=True)
 
 
+# Etiqueta (tag) de Shopify → ORIGEN en el CRM. Cada formulario del sitio pone su
+# propia etiqueta; así el CRM distingue de QUÉ formulario vino el lead. Las claves van
+# en minúscula (la comparación normaliza). Los otros 2 formularios se agregan aquí.
+_SHOPIFY_TAG_ORIGEN = {
+    "formulario cotiza": "Formulario Cotiza",   # sección hero-cotiza.liquid
+    "cotizacion-hero":   "Formulario Cotiza",   # compat con la etiqueta anterior del hero
+    # "formulario xxx":  "Formulario XXX",      # (2º formulario — pendiente)
+    # "formulario yyy":  "Formulario YYY",      # (3er formulario — pendiente)
+}
+
+
+def _origen_desde_tags(tags) -> str:
+    """Deriva el origen del lead a partir de las etiquetas del cliente en Shopify
+    (string coma-separado). Si ninguna etiqueta está mapeada, cae en 'Shopify'."""
+    for _t in str(tags or "").split(","):
+        _o = _SHOPIFY_TAG_ORIGEN.get(_t.strip().lower())
+        if _o:
+            return _o
+    return "Shopify"
+
+
 def _traer_de_shopify():
-    """Trae los clientes de Shopify a la Bandeja como leads (origen 'Shopify'),
-    deduplicados. Deja el resultado en el toast."""
+    """Trae los clientes de Shopify a la Bandeja como leads, deduplicados, clasificando
+    el origen según la etiqueta del formulario (p.ej. 'Formulario Cotiza'); si no tiene
+    etiqueta conocida queda 'Shopify'. Deja el resultado en el toast."""
     if not _shopify_configurado():
         st.session_state["_cli_toast"] = ("Falta configurar Shopify: agrega SHOPIFY_STORE y "
                                           "SHOPIFY_TOKEN (o SHOPIFY_ACCESS_TOKEN) en los secrets.")
@@ -1906,7 +1930,11 @@ def _traer_de_shopify():
     if _err:
         st.session_state["_cli_toast"] = f"Shopify: {_err}"
         return
-    _rows = [_shopify_a_lead(c) for c in _cust]
+    _rows = []
+    for _c in _cust:
+        _row = _shopify_a_lead(_c)
+        _row["origen"] = _origen_desde_tags(_row.get("tags"))   # clasifica por etiqueta
+        _rows.append(_row)
     _res = importar_leads(_rows, origen="Shopify")
     _cli_data.clear()
     # Aviso Telegram a admins/root por cada lead nuevo del sitio web (con su nombre).

@@ -401,6 +401,10 @@ def importar_leads(rows: list, origen: str = "Importado",
         if not nombre:
             omitidos += 1
             continue
+        # Origen POR FILA (si la fila lo trae) → permite clasificar en el mismo lote
+        # leads de distinta procedencia (p.ej. cada formulario de Shopify con su
+        # etiqueta). Si la fila no lo trae, se usa el `origen` del lote (compat).
+        _row_origen = str(row.get("origen") or "").strip() or (origen or "Importado")
         k = dedup_key(row.get("rut"), row.get("email"), row.get("telefono"), nombre, polluted)
         if not k[1]:
             k = ("nombre", _n(nombre))   # sin clave fuerte → dedup por nombre
@@ -414,7 +418,7 @@ def importar_leads(rows: list, origen: str = "Importado",
                 continue
             # Existe pero INACTIVO (borrado/fusionado) → REACTIVAR + refrescar datos.
             if _match["id"] not in reactivar:
-                _rp = {"activo": True, "origen": origen or "Importado",
+                _rp = {"activo": True, "origen": _row_origen,
                        "etapa_manual": "lead_nuevo"}
                 if str(asignado_email or "").strip():
                     _rp["asignado_email"] = str(asignado_email).strip()
@@ -429,7 +433,7 @@ def importar_leads(rows: list, origen: str = "Importado",
             "id": str(uuid.uuid4()),
             "nombre": nombre,
             "tipo": "natural",
-            "origen": origen or "Importado",
+            "origen": _row_origen,
             "asignado_email": str(asignado_email or "").strip(),
             "asignado_nombre": str(asignado_nombre or "").strip(),
             "etapa_manual": "lead_nuevo",
@@ -456,7 +460,7 @@ def importar_leads(rows: list, origen: str = "Importado",
                 "cliente_id": it["id"],
                 "tipo": "lead",
                 "titulo": "Lead importado desde archivo",
-                "detalle": origen or "Importado",
+                "detalle": it.get("origen") or origen or "Importado",
                 "ep": "",
                 "actor": "import",
                 "fecha": now,
