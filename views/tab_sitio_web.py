@@ -1968,9 +1968,9 @@ def render_tab_sitio_web(**kwargs):
 
     # ── Selector de vista: Tarjetas (por defecto) / Tabla / Ordenar web ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
-    _vistas = ["Tarjetas", "Tabla", "Ordenar web", "Reels"]
-    _vicons = {"Tarjetas": ":material/grid_view:", "Tabla": ":material/table_rows:",
-               "Ordenar web": ":material/swap_vert:", "Reels": ":material/movie:"}
+    _vistas = ["Modelos", "Tabla", "Ordenar web", "Reels HOME"]
+    _vicons = {"Modelos": ":material/grid_view:", "Tabla": ":material/table_rows:",
+               "Ordenar web": ":material/swap_vert:", "Reels HOME": ":material/movie:"}
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
 
@@ -1979,8 +1979,8 @@ def render_tab_sitio_web(**kwargs):
         _render_reordenar()
         return
 
-    # Modo "Reels": ver/editar los videos reels de la sección de Shopify (bloques del tema).
-    if _vista == "Reels":
+    # Modo "Reels HOME": ver/editar los videos reels de la sección de Shopify (bloques del tema).
+    if _vista == "Reels HOME":
         _render_reels()
         return
 
