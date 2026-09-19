@@ -631,8 +631,9 @@ def productos_de_coleccion(collection_id) -> tuple:
     """Productos de una colección MANUAL en su ORDEN actual (para reordenar). Devuelve
     (lista, sort_order, error). Cada producto: {gid, id, title, status, image, price}."""
     q = ("query($id:ID!){ collection(id:$id){ sortOrder "
-         "products(first:250){ nodes { id legacyResourceId title status "
-         "featuredImage { url } priceRangeV2 { minVariantPrice { amount } } } } } }")
+         "products(first:250){ nodes { id legacyResourceId title status handle "
+         "featuredImage { url } priceRangeV2 { minVariantPrice { amount } maxVariantPrice { amount } } "
+         "images(first:1){ nodes { id } } totalInventory } } } } }")
     data, err = _graphql(q, {"id": _gid_collection(collection_id)})
     if err:
         return [], "", err
@@ -643,13 +644,16 @@ def productos_de_coleccion(collection_id) -> tuple:
     _nodes = ((_col.get("products") or {}).get("nodes")) or []
     out = []
     for n in _nodes:
+        _pr = (n.get("priceRangeV2") or {})
         out.append({
             "gid": n.get("id"),
             "id": n.get("legacyResourceId"),
             "title": n.get("title") or "",
             "status": n.get("status") or "",
+            "handle": n.get("handle") or "",
             "image": (((n.get("featuredImage") or {}).get("url")) or ""),
-            "price": (((n.get("priceRangeV2") or {}).get("minVariantPrice") or {}).get("amount")) or "",
+            "price": (((_pr.get("minVariantPrice") or {}).get("amount")) or ""),
+            "price_max": (((_pr.get("maxVariantPrice") or {}).get("amount")) or ""),
         })
     return out, _so, None
 

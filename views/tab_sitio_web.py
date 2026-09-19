@@ -285,6 +285,17 @@ _CSS = """
   background:rgba(15,23,42,.48);color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.72rem;
   letter-spacing:.06em;text-transform:uppercase;opacity:0;transition:opacity .16s ease;pointer-events:none;}
 .sw-thumb:hover .sw-edit-ov{opacity:1;}
+/* Tarjeta prepicada "Nuevo modelo" (al final de la grilla). */
+.sw-newcard{border:2px dashed #cbd5e1;border-radius:15px;background:#f8fafc;min-height:230px;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;color:#64748b;
+  text-align:center;padding:22px 16px;transition:border-color .15s,background .15s,color .15s,transform .15s;}
+.sw-newcard:hover{border-color:#5b7cfa;background:#eef2ff;color:#2563eb;transform:translateY(-3px);}
+.sw-newcard-plus{width:56px;height:56px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;
+  justify-content:center;transition:background .15s,transform .15s;}
+.sw-newcard:hover .sw-newcard-plus{background:#dbe3ff;transform:scale(1.06);}
+.sw-newcard-plus svg{width:28px;height:28px;}
+.sw-newcard-txt{font-family:Montserrat,sans-serif;font-weight:800;font-size:0.8rem;text-transform:uppercase;letter-spacing:.04em;}
+.sw-newcard-sub{font-size:0.7rem;color:#94a3b8;font-weight:600;line-height:1.3;}
 /* Modo "Ordenar web": cards con manija de arrastre. */
 .sw-ord-hint{font-family:Montserrat,sans-serif;font-weight:700;font-size:0.74rem;color:#64748b;margin:2px 0 12px;
   display:flex;align-items:center;gap:6px;}
@@ -365,6 +376,7 @@ _SW_JS = r"""<script>
   if(W._swEditH){ D.removeEventListener('click', W._swEditH, true); }
   W._swEditH=function(e){
     var t=e.target; if(!t||!t.closest) return;
+    if(t.closest('.sw-ord-grip')) return;   // clic en la manija = reordenar, no abrir el editor
     var b=t.closest('.sw-edit-btn'); if(!b) return;
     e.preventDefault(); e.stopPropagation();
     var act=b.getAttribute('data-swact')||'edit';
@@ -1925,7 +1937,13 @@ def render_tab_sitio_web(**kwargs):
             st.session_state["_sw_reset_editcmd"] = True   # limpiar el input en el próximo run
             _act, _, _eid = _head.partition(":")
             _eid = (_eid or _act).strip()   # compat: sin ":" el payload es solo el id (editar)
-            if _act == "dup":
+            if _act == "new":               # tarjeta prepicada "Nuevo modelo"
+                _clear_editor_state()
+                for _k in [k for k in list(st.session_state.keys()) if str(k).startswith("sw_new_")]:
+                    st.session_state.pop(_k, None)
+                st.session_state["sw_new"] = True
+                st.rerun()
+            elif _act == "dup":
                 _duplicar_flow(_eid)        # duplica y hace rerun al editor del nuevo
             elif _act == "del":
                 st.session_state["sw_del_pending"] = _eid
@@ -1966,23 +1984,42 @@ def render_tab_sitio_web(**kwargs):
     # ── Vista previa del tema borrador (los productos son compartidos entre temas) ──
     _render_preview_borrador_bar()
 
-    # ── Selector de vista: Tarjetas (por defecto) / Tabla / Ordenar web ──
+    # ── Selector de vista: Modelos (por defecto) / Tabla / Reels HOME ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
-    _vistas = ["Modelos", "Tabla", "Ordenar web", "Reels HOME"]
+    _vistas = ["Modelos", "Tabla", "Reels HOME"]
     _vicons = {"Modelos": ":material/grid_view:", "Tabla": ":material/table_rows:",
-               "Ordenar web": ":material/swap_vert:", "Reels HOME": ":material/movie:"}
+               "Reels HOME": ":material/movie:"}
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
-
-    # Modo "Ordenar web": arrastrar las tarjetas de una colección → fija su orden en la web.
-    if _vista == "Ordenar web":
-        _render_reordenar()
-        return
 
     # Modo "Reels HOME": ver/editar los videos reels de la sección de Shopify (bloques del tema).
     if _vista == "Reels HOME":
         _render_reels()
         return
+
+    # ── MODELOS: selector de COLECCIÓN (antes pestaña "Ordenar web", ahora integrada aquí) ──
+    # "Todos los modelos" = catálogo completo (con filtro por estado). Una colección concreta
+    # = sus modelos ARRASTRABLES desde la manija para fijar el orden en que se ven en la web.
+    if _vista == "Modelos":
+        _cols = st.session_state.get("sw_cols")
+        if _cols is None:
+            _cols, _ = _shop.listar_colecciones()
+            _cols = _cols or []
+            st.session_state["sw_cols"] = _cols
+        _col_map = {(c.get("title") or "(sin título)"): str(c.get("id")) for c in _cols}
+        _TODOS = "Todos los modelos"
+        st.markdown(
+            "<style>.st-key-sw_modelos_col label,.st-key-sw_modelos_col label *{font-family:Montserrat,sans-serif!important;"
+            "font-weight:700!important;font-size:0.78rem!important;letter-spacing:0.04em!important;"
+            "text-transform:uppercase!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;}</style>",
+            unsafe_allow_html=True)
+        _colsel = st.selectbox(
+            "Colección", [_TODOS] + list(_col_map.keys()), key="sw_modelos_col",
+            help="Elige una colección para reordenar cómo se ven sus modelos en la web (arrastrando las "
+                 "tarjetas desde la manija), o «Todos los modelos» para ver el catálogo completo.")
+        if _colsel != _TODOS:
+            _render_modelos_coleccion(_col_map.get(_colsel), _colsel)
+            return
 
     # Cada opción → (status a pedir a Shopify, filtro extra client-side por estado
     # efectivo). "No publicados" (status unlisted) no tiene filtro REST propio, así que
@@ -2113,6 +2150,7 @@ def render_tab_sitio_web(**kwargs):
             'title="Eliminar este producto de la web">Eliminar</button></div>'
             '</div></div>')
 
+    _cards += _new_model_card_html()   # tarjeta prepicada "Nuevo modelo" al final
     st.markdown(f'<div class="sw-grid">{_cards}</div>', unsafe_allow_html=True)
     components.html(_SW_JS, height=0)
 
@@ -2282,37 +2320,28 @@ _SW_REORDER_JS = r"""<script>
 </script>"""
 
 
-def _render_reordenar():
-    """Modo 'Ordenar web': elige una colección MANUAL y arrastra sus productos (desde la
-    manija) para fijar el orden en que se ven en su página web (collectionReorderProducts)."""
-    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 17, 0)}Ordenar productos en la web</div>',
-                unsafe_allow_html=True)
-    st.caption("Elige una colección y arrastra las tarjetas desde la manija para definir el orden en que "
-               "se ven en su página web. Al guardar, la colección queda en orden Manual y el nuevo orden "
-               "se aplica en Shopify (puede tardar unos segundos en reflejarse).")
+def _new_model_card_html():
+    """Tarjeta prepicada 'Nuevo modelo' (va al final de la grilla de MODELOS). Clic → abre el
+    editor de un modelo nuevo (acción 'new' del puente sw_editcmd, vía _SW_JS)."""
+    _plus = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
+             'stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>')
+    return ('<div class="sw-newcard sw-edit-btn" data-swact="new" data-swid="" '
+            'title="Crear un modelo nuevo">'
+            f'<span class="sw-newcard-plus">{_plus}</span>'
+            '<span class="sw-newcard-txt">Nuevo modelo</span>'
+            '<span class="sw-newcard-sub">Crea un modelo desde cero</span></div>')
 
-    _cols = st.session_state.get("sw_cols")
-    if _cols is None:
-        _cols, _ = _shop.listar_colecciones()
-        _cols = _cols or []
-        st.session_state["sw_cols"] = _cols
-    if not _cols:
-        st.info("No hay colecciones manuales en la tienda para ordenar.")
-        return
-    _opts = {(c.get("title") or "(sin título)"): str(c.get("id")) for c in _cols}
-    _sel = st.selectbox("Colección", list(_opts.keys()), key="sw_reord_col")
-    _cid = _opts.get(_sel)
-    if not _cid:
+
+def _render_modelos_coleccion(cid, title):
+    """MODELOS de una COLECCIÓN concreta: sus productos en el ORDEN de la web, arrastrables
+    desde la manija para reordenarlos (collectionReorderProducts), con las mismas acciones que
+    el catálogo (editar/duplicar/eliminar/ver) + tarjeta prepicada 'Nuevo modelo'. Reemplaza
+    a la antigua pestaña 'Ordenar web'."""
+    if not cid:
+        st.info("No se pudo identificar la colección.")
         return
 
-    with st.spinner("Cargando productos de la colección…"):
-        _prods, _so, _err = _shop.productos_de_coleccion(_cid)
-    if _err:
-        st.warning(_err)
-        return
-
-    # Resultado del último guardado (persistente, se muestra una vez para poder ver el
-    # error real de Shopify si algo falla).
+    # Resultado del último guardado de orden (persistente; para ver el error real si falla).
     _res = st.session_state.pop("sw_ord_result", None)
     if _res:
         if _res[0] == "ok":
@@ -2339,55 +2368,102 @@ def _render_reordenar():
                     # nada; si estaba en automático (más vendidos, etc.), pasa a Manual. Sin
                     # esto, collectionReorderProducts falla con "can only be reordered if
                     # the collection sort order is 'Manually'".
-                    _okm, _em = _shop.set_coleccion_manual(_cid)
+                    _okm, _em = _shop.set_coleccion_manual(cid)
                     if not _okm:
                         _errs.append(_em)
-                    _ok, _e = _shop.reordenar_productos_coleccion(_cid, _gids)
+                    _ok, _e = _shop.reordenar_productos_coleccion(cid, _gids)
                     if not _ok:
                         _errs.append(_e)
                 if not _errs:
                     # Orden optimista: reflejarlo ya (el job async puede tardar al refetch).
-                    st.session_state["sw_ord_saved"] = {"cid": _cid, "gids": _gids}
+                    st.session_state["sw_ord_saved"] = {"cid": cid, "gids": _gids}
                     st.session_state["sw_ord_result"] = ("ok", None)
                 else:
                     st.session_state["sw_ord_result"] = ("err", " · ".join(str(x) for x in _errs if x))
                 st.rerun()
 
-    if not _prods:
-        st.info("Esta colección no tiene productos.")
+    with st.spinner("Cargando modelos de la colección…"):
+        _prods, _so, _err = _shop.productos_de_coleccion(cid)
+    if _err:
+        st.warning(_err)
+        components.html(_SW_JS, height=0)
         return
 
-    # Reflejar el último orden guardado (optimista) mientras Shopify procesa el job.
+    st.markdown(
+        f'<div class="sw-sec">{_ic("box", "#0f172a", 17, 0)}Modelos en «{_he(title)}» '
+        f'<span style="color:#94a3b8;font-weight:800;">· {len(_prods)}</span></div>',
+        unsafe_allow_html=True)
+
+    if not _prods:
+        st.info("Esta colección no tiene modelos todavía. Crea uno nuevo con la tarjeta de abajo.")
+        st.markdown(f'<div class="sw-grid">{_new_model_card_html()}</div>', unsafe_allow_html=True)
+        components.html(_SW_JS, height=0)
+        return
+
+    # Reflejar el último orden guardado (optimista) mientras Shopify procesa el job async.
     _saved = st.session_state.get("sw_ord_saved")
-    if _saved and _saved.get("cid") == _cid:
+    if _saved and _saved.get("cid") == cid:
         _pos = {g: i for i, g in enumerate(_saved.get("gids") or [])}
         _prods = sorted(_prods, key=lambda pr: _pos.get(pr.get("gid"), 10 ** 6))
 
-    st.markdown(f'<div class="sw-ord-hint">{len(_prods)} producto(s) en «{_he(_sel)}» · '
-                'arrastra desde la manija <span>&#8942;&#8942;</span> para reordenar</div>',
-                unsafe_allow_html=True)
+    st.markdown('<div class="sw-ord-hint">Arrastra las tarjetas desde la manija '
+                '<span>&#8942;&#8942;</span> para fijar el orden en que se ven en la web · '
+                'clic en la tarjeta para editar el modelo</div>', unsafe_allow_html=True)
     _grip = ('<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/>'
              '<circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/>'
              '<circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>')
     _cards = ""
     for pr in _prods:
+        _pid = _he(pr.get("id"))
         _img = _he(pr.get("image") or "")
         _thumb = (f'<img src="{_img}" alt="" loading="lazy">' if _img
                   else '<span class="sw-noimg">Sin foto</span>')
         _bg, _fg, _blbl = _ESTADOS.get(_estado_efectivo({"status": pr.get("status")}), _ESTADOS["active"])
+        try:
+            _pmin = float(pr.get("price") or 0)
+            _pmax = float(pr.get("price_max") or pr.get("price") or 0)
+        except Exception:
+            _pmin = _pmax = 0.0
+        if _pmin > 0:
+            _price = _fmt_clp(_pmin) if _pmin == _pmax else f"{_fmt_clp(_pmin)} – {_fmt_clp(_pmax)}"
+        else:
+            _price = "—"
+        _web = _shop.producto_web_url(pr.get("handle"))
+        _admp = _shop.producto_admin_url(pr.get("id"))
+        _edit_ov = (f'<div class="sw-edit-ov">{_ic("edit", "#fff", 15, 0)}Editar</div>')
         _cards += (
-            f'<div class="sw-card sw-ord-card" data-pid="{_he(pr.get("gid"))}">'
-            f'<div class="sw-thumb">{_thumb}'
+            f'<div class="sw-card" data-pid="{_he(pr.get("gid"))}">'
+            f'<div class="sw-thumb sw-edit-btn" data-swact="edit" data-swid="{_pid}" '
+            f'title="Editar este modelo">{_thumb}{_edit_ov}'
             f'<span class="sw-badge" style="background:{_bg};color:{_fg};">{_blbl}</span>'
             f'<span class="sw-ord-grip" title="Arrastra para ordenar">{_grip}</span></div>'
-            f'<div class="sw-body"><div class="sw-title">{_he(pr.get("title"))}</div></div></div>')
+            '<div class="sw-body">'
+            f'<div class="sw-title">{_he(pr.get("title") or "(sin título)")}</div>'
+            f'<div class="sw-price">{_price}</div>'
+            '<div class="sw-actions">'
+            f'<button type="button" class="sw-btn sw-btn-edit sw-edit-btn" '
+            f'data-swact="edit" data-swid="{_pid}">Editar</button>'
+            f'<button type="button" class="sw-btn sw-btn-dup sw-edit-btn" '
+            f'data-swact="dup" data-swid="{_pid}" '
+            'title="Crear una copia (borrador) para un modelo nuevo">Duplicar</button></div>'
+            '<div class="sw-actions" style="margin-top:6px;">'
+            + (f'<a class="sw-btn sw-btn-web" href="{_he(_web)}" target="_blank">Ver</a>' if _web else "")
+            + (f'<a class="sw-btn sw-btn-adm" href="{_he(_admp)}" target="_blank">Shopify</a>' if _admp else "")
+            + '</div>'
+            '<div class="sw-actions" style="margin-top:6px;">'
+            f'<button type="button" class="sw-btn sw-btn-del sw-edit-btn" '
+            f'data-swact="del" data-swid="{_pid}" '
+            'title="Eliminar este producto de la web">Eliminar</button></div>'
+            '</div></div>')
+    _cards += _new_model_card_html()   # prepicado "Nuevo modelo" (sin data-pid: no se reordena)
     st.markdown(f'<div id="sw-reord-grid" class="sw-grid">{_cards}</div>', unsafe_allow_html=True)
     st.markdown('<div class="sw-ord-savewrap"><button id="sw-ord-save" class="sw-ord-savebtn" disabled>'
                 'Guardar orden</button></div>', unsafe_allow_html=True)
     # Nonce (colección + ts del último guardado): cambia el contenido del componente para
     # forzar que el JS se re-ejecute tras guardar y resetee el botón (si no, queda pegado).
-    _nonce = f"{_cid}-{st.session_state.get('sw_ordcmd_ts', '')}"
-    components.html(_SW_REORDER_JS + f"<!--n:{_he(_nonce)}-->", height=0)
+    _nonce = f"{cid}-{st.session_state.get('sw_ordcmd_ts', '')}"
+    components.html(_SW_JS, height=0)                                    # editar/duplicar/eliminar/nuevo
+    components.html(_SW_REORDER_JS + f"<!--n:{_he(_nonce)}-->", height=0)  # arrastrar para reordenar
 
 
 # Botón FLOTANTE "Guardar y publicar": se inyecta en el <body> del padre (fijo, centrado
