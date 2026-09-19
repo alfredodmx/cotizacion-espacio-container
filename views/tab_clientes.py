@@ -13,6 +13,7 @@ y escribe en tablas nuevas. No toca el flujo actual.
 """
 import html as _html
 import json as _json
+import re as _re
 import unicodedata as _ud
 from datetime import date as _date, datetime as _dt, timedelta as _td, timezone as _tz
 try:
@@ -1221,29 +1222,58 @@ def _fuente_badge(origen) -> str:
             f'{_svg(_ico, 11, "currentColor")}{_esc(_lbl)}</span>')
 
 
+def _note_interes(note) -> str:
+    """Extrae el 'Interés' que el formulario del sitio guarda en la NOTA del cliente
+    ('WhatsApp: ... · Interés: <lo que necesita>')."""
+    _m = _re.search(r"inter[eé]s\s*[:\-]\s*(.+?)(?:\s*·\s*whatsapp|\s*$)", str(note or ""), _re.I | _re.S)
+    return _m.group(1).strip() if _m else ""
+
+
+def _note_tel(note) -> str:
+    """Extrae el WhatsApp que el formulario guarda en la NOTA del cliente."""
+    _m = _re.search(r"(?:whatsapp|tel[eé]fono|fono|celular)\s*[:\-]?\s*([+()\d][\d\s()\-+]{6,})",
+                    str(note or ""), _re.I)
+    return _m.group(1).strip() if _m else ""
+
+
 @st.cache_data(ttl=300, show_spinner=False)
-def _shopify_form_lookup() -> dict:
-    """Mapa {email_en_minúsculas: 'Formulario X'} armado con las ETIQUETAS de los clientes
-    de Shopify (vía `_SHOPIFY_TAG_ORIGEN`). Sirve para mostrar de QUÉ formulario del sitio
-    vino cada lead, INDEPENDIENTE de cómo entró al CRM (webhook en vivo o botón «Traer de
-    Shopify»). Cacheado 5 min y DEFENSIVO: si Shopify no está configurado o falla, {}."""
-    out: dict = {}
+def _shopify_form_lookup():
+    """Lee los clientes de Shopify y arma un mapa `{email_min: {formulario, telefono, interes}}`
+    con lo que el formulario del sitio guarda: FORMULARIO desde las etiquetas (_SHOPIFY_TAG_ORIGEN)
+    y TELÉFONO/INTERÉS desde el campo phone o la NOTA del cliente. Así el CRM lo muestra
+    INDEPENDIENTE de cómo entró el lead (webhook en vivo o botón «Traer de Shopify»), sin depender
+    de que el Flask lea esos campos. Devuelve (mapa, diag). Cacheado 5 min y DEFENSIVO.
+    `diag` = {ok, total, con_form, error} para el aviso de diagnóstico del CRM."""
+    _map: dict = {}
+    _diag = {"ok": False, "total": 0, "con_form": 0, "error": ""}
     try:
         if not _shopify_configurado():
-            return out
+            _diag["error"] = "Shopify no configurado (faltan SHOPIFY_STORE / SHOPIFY_TOKEN)."
+            return _map, _diag
         _custs, _err = _shopify_listar()
-        if _err or not _custs:
-            return out
-        for _c in _custs:
-            _lbl = _origen_desde_tags(_c.get("tags"))
-            if _lbl == "Shopify":            # sin etiqueta de formulario conocida
-                continue
+        if _err:
+            _diag["error"] = str(_err)
+            return _map, _diag
+        _diag["ok"] = True
+        _diag["total"] = len(_custs or [])
+        for _c in (_custs or []):
             _em = str(_c.get("email") or "").strip().lower()
-            if _em:
-                out[_em] = _lbl
-    except Exception:
-        pass
-    return out
+            if not _em:
+                continue
+            _lbl = _origen_desde_tags(_c.get("tags"))
+            _form = "" if _lbl == "Shopify" else _lbl
+            _note = _c.get("note") or ""
+            _tel = str(_c.get("phone") or ((_c.get("default_address") or {}).get("phone")) or "").strip()
+            if not _tel:
+                _tel = _note_tel(_note)
+            _int = _note_interes(_note)
+            if _form:
+                _diag["con_form"] += 1
+            if _form or _tel or _int:
+                _map[_em] = {"formulario": _form, "telefono": _tel, "interes": _int}
+    except Exception as _e:
+        _diag["error"] = str(_e)
+    return _map, _diag
 
 
 def _form_pill(formulario) -> str:
@@ -2159,6 +2189,22 @@ def _render_bandeja(data: list, msel: bool = False):
                             '<code>SHOPIFY_STORE</code> y <code>SHOPIFY_TOKEN</code> '
                             '(o <code>SHOPIFY_ACCESS_TOKEN</code>) en los secrets '
                             'para activar la ingesta.</div>', unsafe_allow_html=True)
+            else:
+                # Diagnóstico: ¿puede el CRM LEER los clientes de Shopify? ¿cuántos traen
+                # etiqueta de formulario? Revela si falta el permiso read_customers o si el
+                # formulario no está guardando la etiqueta.
+                _dg = st.session_state.get("_cli_shopify_diag") or {}
+                if _dg.get("error"):
+                    st.markdown('<div class="cli-actf-hint" style="margin:0;color:#b91c1c;">'
+                                'No puedo leer los clientes de Shopify: <code>'
+                                f'{_esc(str(_dg.get("error"))[:160])}</code>. Si dice 401/403, '
+                                'al token le falta el permiso <b>read_customers</b>.</div>',
+                                unsafe_allow_html=True)
+                elif _dg.get("ok"):
+                    st.markdown('<div class="cli-actf-hint" style="margin:0;">Shopify: leí '
+                                f'<b>{_dg.get("total", 0)}</b> cliente(s), '
+                                f'<b>{_dg.get("con_form", 0)}</b> con etiqueta de formulario.</div>',
+                                unsafe_allow_html=True)
     if not leads:
         st.markdown(
             '<div class="cli-empty-ph">Sin leads pendientes por asignar.<br>'
@@ -2583,6 +2629,9 @@ def _render_datos(cid, cli):
     _tel = cli.get("telefono", "") or ""
     _dir = cli.get("direccion", "") or ""
     _com = cli.get("comuna", "") or ""
+    _int = cli.get("_interes", "") or ""   # "¿Qué necesita?" del formulario del sitio
+    _int_cell = (f'<div><div class="k">¿Qué necesita?</div>{_cp(_int, _esc(_int), "Copiar")}</div>'
+                 if _int else "")
     st.markdown(
         '<div class="cli-data">'
         f'<div><div class="k">Correo</div>{_cp(_correo, _esc(_correo or "—"), "Copiar correo")}</div>'
@@ -2590,6 +2639,7 @@ def _render_datos(cid, cli):
         f'{_wa_cell(_tel)}'
         f'<div><div class="k">Dirección</div>{_cp(_dir, _esc(_dir or "—"), "Copiar dirección")}</div>'
         f'<div><div class="k">Comuna</div>{_cp(_com, _esc(_com or "—"), "Copiar comuna")}</div>'
+        f'{_int_cell}'
         f'{_empresa}'
         '</div>', unsafe_allow_html=True)
 
@@ -4949,14 +4999,20 @@ def render_tab_clientes(**kwargs):
     # tarjetas / maestro / filtros / ficha lean el MISMO valor.
     _pregs_score = _preguntas_data()
     _camp_map = _campanas_map()
-    # Formulario de origen (Shopify): de QUÉ formulario del sitio vino el lead, según las
-    # etiquetas del cliente en Shopify (badge aparte de la fuente). Cacheado + defensivo.
-    _flookup = _shopify_form_lookup()
+    # Datos que el formulario del sitio deja en el cliente de Shopify pero que el webhook
+    # NO copia al CRM: FORMULARIO (etiqueta), TELÉFONO e INTERÉS (nota). Se leen en vivo de
+    # Shopify (cacheado + defensivo) y se completan acá para mostrarlos en la card/ficha.
+    _flookup, _fdiag = _shopify_form_lookup()
+    st.session_state["_cli_shopify_diag"] = _fdiag
     for _d in data:
         _d["_score"] = _lead_score(_d, _pregs_score)
         _d["_campanas"] = _camp_map.get(str(_d.get("id")), [])
         _em = str(_d.get("email") or "").strip().lower()
-        _d["_formulario"] = _flookup.get(_em, "") if (_flookup and _em) else ""
+        _info = _flookup.get(_em) if (_flookup and _em) else None
+        _d["_formulario"] = (_info or {}).get("formulario", "")
+        _d["_interes"] = (_info or {}).get("interes", "")
+        if _info and _info.get("telefono") and not str(_d.get("telefono") or "").strip():
+            _d["telefono"] = _info["telefono"]   # completa el teléfono que el webhook no trajo
 
     # Registrar transiciones de ETAPA en el timeline + mantener el reloj SLA (lazy,
     # gateado, best-effort → no frena el render).
