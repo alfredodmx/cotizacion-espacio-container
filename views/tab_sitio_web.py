@@ -2533,9 +2533,11 @@ def _build_reels_form(work, prod_opts, adv_names):
     _add = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
             'stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>')
     _cards = "".join(_reel_card_html(r, prod_opts) for r in work)
-    if not _cards:
-        _cards = ('<div class="rl-empty">Aún no hay reels. Pulsa «Agregar reel» para subir el primero '
-                  '(video vertical 9:16).</div>')
+    # Tarjeta-dropzone (siempre al final de la grilla): clic o arrastrar y soltar un video.
+    _drop = ('<div class="rl-drop" id="rl-drop" role="button" tabindex="0" aria-label="Subir reel">'
+             '<span class="rl-drop-plus">' + _add + '</span>'
+             '<span class="rl-drop-txt">Subir reel</span>'
+             '<span class="rl-drop-sub">Haz clic o arrastra un video aquí</span></div>')
     _tpl = _reel_card_html({"id": None, "video": "", "caption": "", "advisor_name": "",
                             "linked_product": "", "_pv": "", "_src": ""}, prod_opts)
     _advs = "".join(f'<option value="{_he(n)}">' for n in sorted({a for a in adv_names if a}))
@@ -2545,11 +2547,6 @@ def _build_reels_form(work, prod_opts, adv_names):
 <style>
 *{box-sizing:border-box;} html,body{margin:0;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:transparent;color:#0f172a;}
 #rl-root{padding-bottom:82px;}
-.rl-top{display:flex;justify-content:flex-start;align-items:center;gap:12px;margin:0 0 16px;}
-.rl-add{display:inline-flex;align-items:center;gap:8px;background:#0f172a;color:#fff;border:none;border-radius:12px;
-  padding:12px 22px;font-family:Montserrat,sans-serif;font-weight:800;font-size:0.76rem;text-transform:uppercase;
-  letter-spacing:.04em;cursor:pointer;transition:background .15s;}
-.rl-add:hover{background:#1e293b;} .rl-add svg{width:16px;height:16px;}
 .rl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:16px;align-items:start;}
 .rlc{background:#fff;border:1px solid #e8ebf3;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(15,23,42,.05);
   display:flex;flex-direction:column;}
@@ -2576,10 +2573,21 @@ def _build_reels_form(work, prod_opts, adv_names):
 .rl-empty{grid-column:1/-1;color:#94a3b8;font-size:.88rem;padding:34px;text-align:center;border:1.5px dashed #cbd5e1;border-radius:14px;}
 .rl-msg{display:none;background:#fff1f2;border:1px solid #fca5a5;color:#b91c1c;border-radius:10px;padding:10px 13px;
   font-size:.8rem;line-height:1.4;margin-bottom:12px;}
+/* Tarjeta-dropzone para subir un reel (clic o arrastrar y soltar el video) */
+.rl-drop{aspect-ratio:9/16;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:14px;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;color:#64748b;
+  transition:border-color .15s,background .15s,color .15s;padding:16px;text-align:center;}
+.rl-drop:hover,.rl-drop.is-over{border-color:#5b7cfa;background:#eef2ff;color:#2563eb;}
+.rl-drop-plus{width:56px;height:56px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;
+  justify-content:center;transition:background .15s,transform .15s;}
+.rl-drop:hover .rl-drop-plus,.rl-drop.is-over .rl-drop-plus{background:#dbe3ff;transform:scale(1.06);}
+.rl-drop-plus svg{width:28px;height:28px;}
+.rl-drop-txt{font-family:Montserrat,sans-serif;font-weight:800;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;}
+.rl-drop-sub{font-size:.68rem;color:#94a3b8;font-weight:600;line-height:1.3;}
+.rl-drop.is-over .rl-drop-sub{color:#2563eb;}
 </style></head><body><div id="rl-root">
-<div class="rl-top"><button type="button" id="rl-addbtn" class="rl-add">__ADD__ Agregar reel</button></div>
 <div id="rl-msg" class="rl-msg"></div>
-<div class="rl-grid" id="rl-grid">__CARDS__</div>
+<div class="rl-grid" id="rl-grid">__CARDS____DROP__</div>
 <datalist id="rl-advs">__ADVS__</datalist>
 <template id="rl-tpl">__TPL__</template>
 <input type="file" id="rl-file" accept="video/*" style="display:none">
@@ -2588,14 +2596,12 @@ def _build_reels_form(work, prod_opts, adv_names):
 (function(){
 var doc=document, P=window.parent;
 var grid=doc.getElementById('rl-grid'), fileIn=doc.getElementById('rl-file'),
-    addbtn=doc.getElementById('rl-addbtn'), tpl=doc.getElementById('rl-tpl'), msg=doc.getElementById('rl-msg');
+    dropEl=doc.getElementById('rl-drop'), tpl=doc.getElementById('rl-tpl'), msg=doc.getElementById('rl-msg');
 var newFiles={}, upMode={op:'',card:null};
 function uid(){ return 'n'+Math.random().toString(36).slice(2,10); }
 function fileB64(f){ return new Promise(function(res){ var r=new FileReader();
   r.onload=function(){ try{ res((''+r.result).split(',')[1]||''); }catch(e){ res(''); } };
   r.onerror=function(){ res(''); }; r.readAsDataURL(f); }); }
-function ensureEmpty(){ var e=grid.querySelector('.rl-empty'); if(e && grid.querySelectorAll('.rlc').length) e.remove();
-  if(!grid.querySelectorAll('.rlc').length && !grid.querySelector('.rl-empty')){ var d=doc.createElement('div'); d.className='rl-empty'; d.textContent='Aún no hay reels. Pulsa «Agregar reel» para subir el primero.'; grid.appendChild(d); } }
 function setCardVideo(card, url){ var w=card.querySelector('.rlc-vidwrap');
   w.innerHTML='<video preload="metadata" playsinline controls src="'+(url+'').replace(/"/g,'&quot;')+'"></video>'; }
 function collect(){ var out=[]; [].slice.call(grid.querySelectorAll('.rlc')).forEach(function(c){
@@ -2608,26 +2614,43 @@ function setDirty(){ try{ P._swReelsDirty=dirty(); }catch(e){} }
 function showMsg(t){ if(msg){ msg.textContent=t; msg.style.display='block'; } }
 function hideMsg(){ if(msg) msg.style.display='none'; }
 /* Subir/cambiar video (archivo local, como en productos) */
-addbtn.addEventListener('click', function(){ upMode={op:'add',card:null}; fileIn.value=''; fileIn.click(); });
+function addReelFromFile(f){
+  if(!f) return;
+  if((f.type||'').indexOf('video')!==0){ showMsg('El archivo debe ser un video.'); return; }
+  var key=uid(); newFiles[key]=f; var url=URL.createObjectURL(f);
+  var node=tpl.content.firstElementChild.cloneNode(true);
+  node.setAttribute('data-id',''); node.setAttribute('data-video',''); node.setAttribute('data-newkey',key);
+  grid.insertBefore(node, dropEl);   // el reel nuevo va ANTES del dropzone (que queda siempre al final)
+  setCardVideo(node,url); node.scrollIntoView({block:'nearest'});
+  hideMsg(); setDirty();
+}
+function changeReelVideo(card, f){
+  if(!card || !f) return;
+  if((f.type||'').indexOf('video')!==0){ showMsg('El archivo debe ser un video.'); return; }
+  var key=uid(); newFiles[key]=f; var url=URL.createObjectURL(f);
+  var old=card.getAttribute('data-newkey'); if(old&&newFiles[old]&&old!==key)delete newFiles[old];
+  card.setAttribute('data-newkey',key); setCardVideo(card,url);
+  hideMsg(); setDirty();
+}
 grid.addEventListener('click', function(e){
   var ch=e.target.closest?e.target.closest('.rlc-change'):null;
   if(ch){ upMode={op:'change',card:ch.closest('.rlc')}; fileIn.value=''; fileIn.click(); return; }
   var dl=e.target.closest?e.target.closest('.rlc-del'):null;
-  if(dl){ var c=dl.closest('.rlc'); var nk=c.getAttribute('data-newkey'); if(nk&&newFiles[nk])delete newFiles[nk]; c.remove(); ensureEmpty(); setDirty(); }
+  if(dl){ var c=dl.closest('.rlc'); var nk=c.getAttribute('data-newkey'); if(nk&&newFiles[nk])delete newFiles[nk]; c.remove(); setDirty(); }
 });
 fileIn.addEventListener('change', function(){
-  var f=this.files&&this.files[0]; if(!f) return;
-  if((f.type||'').indexOf('video')!==0){ showMsg('El archivo debe ser un video.'); return; }
-  var key=uid(); newFiles[key]=f; var url=URL.createObjectURL(f);
-  if(upMode.op==='change' && upMode.card){ var c=upMode.card; var old=c.getAttribute('data-newkey'); if(old&&newFiles[old]&&old!==key)delete newFiles[old];
-    c.setAttribute('data-newkey',key); setCardVideo(c,url); }
-  else { var e=grid.querySelector('.rl-empty'); if(e)e.remove();
-    var node=tpl.content.firstElementChild.cloneNode(true); node.setAttribute('data-id',''); node.setAttribute('data-video','');
-    node.setAttribute('data-newkey',key);
-    grid.insertBefore(node, grid.firstChild);   // nuevo reel PRIMERO (se ve de inmediato en «Todos» de la web)
-    setCardVideo(node,url); node.scrollIntoView({block:'nearest'}); }
-  this.value=''; hideMsg(); setDirty();
+  var f=this.files&&this.files[0]; this.value='';
+  if(upMode.op==='change' && upMode.card){ changeReelVideo(upMode.card, f); }
+  else { addReelFromFile(f); }
 });
+/* Dropzone (tarjeta prepicada al final): clic para elegir, o arrastrar y soltar un video */
+function pickForAdd(){ upMode={op:'add',card:null}; fileIn.value=''; fileIn.click(); }
+dropEl.addEventListener('click', pickForAdd);
+dropEl.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pickForAdd(); } });
+['dragenter','dragover'].forEach(function(ev){ dropEl.addEventListener(ev, function(e){ if(dragEl) return; e.preventDefault(); e.stopPropagation(); if(e.dataTransfer)e.dataTransfer.dropEffect='copy'; dropEl.classList.add('is-over'); }); });
+['dragleave','dragend'].forEach(function(ev){ dropEl.addEventListener(ev, function(e){ if(dragEl) return; e.stopPropagation(); dropEl.classList.remove('is-over'); }); });
+dropEl.addEventListener('drop', function(e){ if(dragEl) return; e.preventDefault(); e.stopPropagation(); dropEl.classList.remove('is-over');
+  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) addReelFromFile(f); });
 /* Reordenar por arrastre desde la manija (grip) */
 var dragEl=null;
 grid.addEventListener('mousedown', function(e){ var g=e.target.closest?e.target.closest('.rlc-grip'):null; if(!g)return; var c=g.closest('.rlc'); if(c)c.setAttribute('draggable','true'); });
@@ -2665,9 +2688,9 @@ function swResize(){ try{ var el=doc.getElementById('rl-root'); if(!el)return; v
 setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,t); });
 })();
 </script></body></html>"""
-    _html = (_html.replace("__ADD__", _add).replace("__CARDS__", _cards)
+    _html = (_html.replace("__CARDS__", _cards).replace("__DROP__", _drop)
              .replace("__TPL__", _tpl).replace("__ADVS__", _advs))
-    _n = max(1, len(work))
+    _n = len(work) + 1   # +1 por la tarjeta-dropzone (siempre al final)
     _rows = (_n + 2) // 3
     return _html, 120 + _rows * 620
 
