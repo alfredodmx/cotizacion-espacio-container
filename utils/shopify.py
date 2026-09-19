@@ -1446,16 +1446,34 @@ def duplicar_producto(pid, new_title, include_images: bool = True, new_status: s
     return (_gid.rsplit("/", 1)[-1] if _gid else None), None
 
 
+def _tel_desde_note(note) -> str:
+    """Extrae un WhatsApp/teléfono de la NOTA del cliente. Los formularios del sitio
+    guardan el número en la nota (p.ej. 'WhatsApp: +56 9 1234 5678 · Interés: ...')
+    porque Shopify exige que el campo `phone` del cliente sea único — meterlo ahí haría
+    que un re-envío o un número repetido RECHACE el lead. Devuelve '' si no encuentra."""
+    import re
+    _s = str(note or "")
+    _m = re.search(r"(?:whatsapp|tel[eé]fono|fono|celular|phone)\s*[:\-]?\s*([+()\d][\d\s()\-+]{6,})", _s, re.I)
+    if _m:
+        return _m.group(1).strip()
+    # Sin etiqueta: primer bloque que parezca teléfono (≥7 dígitos).
+    _m = re.search(r"(\+?\d[\d\s()\-]{6,}\d)", _s)
+    return _m.group(1).strip() if _m else ""
+
+
 def a_lead(c: dict) -> dict:
     """Mapea un cliente de Shopify a un lead del CRM (llaves de CAMPOS_IMPORT)."""
     _addr = c.get("default_address") or {}
     _nombre = " ".join(x for x in (c.get("first_name"), c.get("last_name")) if x).strip()
     if not _nombre:
         _nombre = str(_addr.get("name") or c.get("email") or "").strip()
+    _tel = str(c.get("phone") or _addr.get("phone") or "").strip()
+    if not _tel:                                   # fallback: teléfono guardado en la nota
+        _tel = _tel_desde_note(c.get("note"))
     return {
         "nombre": _nombre,
         "email": str(c.get("email") or "").strip(),
-        "telefono": str(c.get("phone") or _addr.get("phone") or "").strip(),
+        "telefono": _tel,
         "direccion": str(_addr.get("address1") or "").strip(),
         "comuna": str(_addr.get("city") or "").strip(),
         "region": str(_addr.get("province") or "").strip(),
