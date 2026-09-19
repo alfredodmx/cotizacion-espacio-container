@@ -1221,6 +1221,42 @@ def _fuente_badge(origen) -> str:
             f'{_svg(_ico, 11, "currentColor")}{_esc(_lbl)}</span>')
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _shopify_form_lookup() -> dict:
+    """Mapa {email_en_minúsculas: 'Formulario X'} armado con las ETIQUETAS de los clientes
+    de Shopify (vía `_SHOPIFY_TAG_ORIGEN`). Sirve para mostrar de QUÉ formulario del sitio
+    vino cada lead, INDEPENDIENTE de cómo entró al CRM (webhook en vivo o botón «Traer de
+    Shopify»). Cacheado 5 min y DEFENSIVO: si Shopify no está configurado o falla, {}."""
+    out: dict = {}
+    try:
+        if not _shopify_configurado():
+            return out
+        _custs, _err = _shopify_listar()
+        if _err or not _custs:
+            return out
+        for _c in _custs:
+            _lbl = _origen_desde_tags(_c.get("tags"))
+            if _lbl == "Shopify":            # sin etiqueta de formulario conocida
+                continue
+            _em = str(_c.get("email") or "").strip().lower()
+            if _em:
+                out[_em] = _lbl
+    except Exception:
+        pass
+    return out
+
+
+def _form_pill(formulario) -> str:
+    """Pill (estilo cli-pill, se ve en MAYÚSCULAS por CSS) del FORMULARIO del sitio que
+    generó el lead — p.ej. FORMULARIO COTIZA. Va APARTE del origen/fuente. '' si no aplica."""
+    _f = str(formulario or "").strip()
+    if not _f:
+        return ""
+    _lbl = _fuente_meta(_f)[0]
+    _bg, _fg = _ORIGEN_COLORS.get(_f.split(" ")[0].lower(), _ORIGEN_COLORS["formulario"])
+    return f'<span class="cli-pill" style="background:{_bg};color:{_fg};">{_esc(_lbl)}</span>'
+
+
 # Iconos (path SVG) de cada ZONA de la ficha, para los separadores.
 _ZIC_DATOS = '<rect width="18" height="18" x="3" y="4" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2"/><path d="M15 12h2"/><path d="M7 16h10"/>'
 _ZIC_ASIGNAR = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>'
@@ -1918,9 +1954,11 @@ def _origen_desde_tags(tags) -> str:
 
 
 def _traer_de_shopify():
-    """Trae los clientes de Shopify a la Bandeja como leads, deduplicados, clasificando
-    el origen según la etiqueta del formulario (p.ej. 'Formulario Cotiza'); si no tiene
-    etiqueta conocida queda 'Shopify'. Deja el resultado en el toast."""
+    """Trae los clientes de Shopify a la Bandeja como leads (origen 'Shopify' = canal),
+    deduplicados. El FORMULARIO específico (p.ej. 'Formulario Cotiza') NO va en el origen
+    sino en un badge aparte que se deriva de las etiquetas del cliente (_shopify_form_lookup)
+    — así se ve tanto en los leads que entran por este botón como por el webhook en vivo.
+    Deja el resultado en el toast."""
     if not _shopify_configurado():
         st.session_state["_cli_toast"] = ("Falta configurar Shopify: agrega SHOPIFY_STORE y "
                                           "SHOPIFY_TOKEN (o SHOPIFY_ACCESS_TOKEN) en los secrets.")
@@ -1930,13 +1968,10 @@ def _traer_de_shopify():
     if _err:
         st.session_state["_cli_toast"] = f"Shopify: {_err}"
         return
-    _rows = []
-    for _c in _cust:
-        _row = _shopify_a_lead(_c)
-        _row["origen"] = _origen_desde_tags(_row.get("tags"))   # clasifica por etiqueta
-        _rows.append(_row)
+    _rows = [_shopify_a_lead(_c) for _c in _cust]
     _res = importar_leads(_rows, origen="Shopify")
     _cli_data.clear()
+    _shopify_form_lookup.clear()   # refrescar el mapa email→formulario con lo recién traído
     # Aviso Telegram a admins/root por cada lead nuevo del sitio web (con su nombre).
     for _nom in (_res.get("nombres") or []):
         try:
@@ -2142,7 +2177,8 @@ def _render_bandeja(data: list, msel: bool = False):
             f'<div class="{_cls}" data-cid="{_esc(d.get("id"))}" data-cname="{_esc(d.get("nombre",""))}"'
             f' data-s="{_sb}" style="margin-bottom:10px;">{_box}'
             f'<div class="cli-card-nm">{_esc(d.get("nombre","") or "—")}</div>'
-            f'<div class="cli-card-sub" style="margin-top:4px;">{_origen_pill(d.get("origen","Manual"))}</div>'
+            f'<div class="cli-card-sub" style="margin-top:4px;display:flex;gap:5px;flex-wrap:wrap;">'
+            f'{_origen_pill(d.get("origen","Manual"))}{_form_pill(d.get("_formulario"))}</div>'
             f'<div class="cli-card-sub" style="margin-top:4px;">{_esc(d.get("email","") or d.get("telefono","") or "—")}</div>'
             f'{_campanas_card_html(d.get("_campanas"))}'
             '</div>')
@@ -4442,6 +4478,7 @@ def _render_ficha(cid: str, data: list):
             '</div>'
             '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">'
             f'{_origen_pill(cli.get("origen","Manual"))}'
+            f'{_form_pill(cli.get("_formulario"))}'
             f'<span class="cli-pill" style="background:{_sbg};color:{_sfg};">{_slbl}</span>'
             f'{_sla_clock_html(cli.get("stage_desde") or cli.get("fecha_creacion"), _stage_work(cli), lg=True)}'
             '</div>', unsafe_allow_html=True)
@@ -4912,9 +4949,14 @@ def render_tab_clientes(**kwargs):
     # tarjetas / maestro / filtros / ficha lean el MISMO valor.
     _pregs_score = _preguntas_data()
     _camp_map = _campanas_map()
+    # Formulario de origen (Shopify): de QUÉ formulario del sitio vino el lead, según las
+    # etiquetas del cliente en Shopify (badge aparte de la fuente). Cacheado + defensivo.
+    _flookup = _shopify_form_lookup()
     for _d in data:
         _d["_score"] = _lead_score(_d, _pregs_score)
         _d["_campanas"] = _camp_map.get(str(_d.get("id")), [])
+        _em = str(_d.get("email") or "").strip().lower()
+        _d["_formulario"] = _flookup.get(_em, "") if (_flookup and _em) else ""
 
     # Registrar transiciones de ETAPA en el timeline + mantener el reloj SLA (lazy,
     # gateado, best-effort → no frena el render).
