@@ -5008,11 +5008,19 @@ def render_tab_clientes(**kwargs):
         _d["_score"] = _lead_score(_d, _pregs_score)
         _d["_campanas"] = _camp_map.get(str(_d.get("id")), [])
         _em = str(_d.get("email") or "").strip().lower()
+        # 1º lo que guardó el webhook Flask en shopify_meta (fuente confiable), 2º el lookup
+        # en vivo de Shopify (respaldo, por si el Flask aún no lo trae o para leads viejos).
+        _meta = _d.get("shopify_meta") or {}
+        if isinstance(_meta, str):
+            try:
+                _meta = _json.loads(_meta)
+            except Exception:
+                _meta = {}
         _info = _flookup.get(_em) if (_flookup and _em) else None
-        _d["_formulario"] = (_info or {}).get("formulario", "")
-        _d["_interes"] = (_info or {}).get("interes", "")
-        if _info and _info.get("telefono") and not str(_d.get("telefono") or "").strip():
-            _d["telefono"] = _info["telefono"]   # completa el teléfono que el webhook no trajo
+        _d["_formulario"] = str(_meta.get("formulario") or (_info or {}).get("formulario", "") or "")
+        _d["_interes"] = str(_meta.get("interes") or (_info or {}).get("interes", "") or "")
+        if not str(_d.get("telefono") or "").strip() and _info and _info.get("telefono"):
+            _d["telefono"] = _info["telefono"]   # completa el teléfono si el lead vino sin él
 
     # Registrar transiciones de ETAPA en el timeline + mantener el reloj SLA (lazy,
     # gateado, best-effort → no frena el render).
