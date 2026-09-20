@@ -1248,6 +1248,44 @@ def _note_tel(note) -> str:
     return _m.group(1).strip() if _m else ""
 
 
+def _note_dict(note) -> dict:
+    """Convierte la NOTA ('Etiqueta: valor · Etiqueta: valor · …') en {etiqueta_min: valor}.
+    Es el mismo formato que arman los formularios del sitio; así el CRM recupera TODOS los
+    campos (modelo, valor, región, plazo, presupuesto, mensaje…) aunque el Flask aún no los
+    haya guardado en shopify_meta."""
+    _out = {}
+    for _p in str(note or "").split("·"):
+        if ":" in _p:
+            _k, _v = _p.split(":", 1)
+            _k = _k.strip().lower()
+            if _k and _k not in _out:
+                _out[_k] = _v.strip()
+    return _out
+
+
+def _nfirst(d: dict, *claves) -> str:
+    """Primer valor no vacío del dict de la nota entre varias etiquetas posibles."""
+    for _k in claves:
+        _v = str(d.get(_k) or "").strip()
+        if _v:
+            return _v
+    return ""
+
+
+def _note_meta(note) -> dict:
+    """Campos de la nota mapeados a las llaves de shopify_meta que muestra la ficha
+    (modelo/precio/presupuesto/region/plazo/descripcion)."""
+    _d = _note_dict(note)
+    return {
+        "modelo": _nfirst(_d, "modelo"),
+        "precio": _nfirst(_d, "valor", "precio"),
+        "presupuesto": _nfirst(_d, "presupuesto"),
+        "region": _nfirst(_d, "región", "region"),
+        "plazo": _nfirst(_d, "plazo", "plazo ideal"),
+        "descripcion": _nfirst(_d, "mensaje", "descripción", "descripcion"),
+    }
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _shopify_form_lookup():
     """Lee los clientes de Shopify y arma un mapa `{email_min: {formulario, telefono, interes}}`
@@ -1281,10 +1319,12 @@ def _shopify_form_lookup():
             if not _tel:
                 _tel = _note_tel(_note)
             _int = _note_interes(_note)
+            _meta_note = _note_meta(_note)   # modelo/valor/región/plazo/presupuesto/mensaje
             if _form:
                 _diag["con_form"] += 1
-            if _form or _tel or _int:
-                _map[_em] = {"formulario": _form, "telefono": _tel, "interes": _int}
+            if _form or _tel or _int or any(_meta_note.values()):
+                _map[_em] = {"formulario": _form, "telefono": _tel, "interes": _int,
+                             "meta_note": _meta_note}
     except Exception as _e:
         _diag["error"] = str(_e)
     return _map, _diag
@@ -5038,6 +5078,14 @@ def render_tab_clientes(**kwargs):
         _d["_interes"] = str(_meta.get("interes") or (_info or {}).get("interes", "") or "")
         if not str(_d.get("telefono") or "").strip() and _info and _info.get("telefono"):
             _d["telefono"] = _info["telefono"]   # completa el teléfono si el lead vino sin él
+        # Completar shopify_meta con lo parseado de la nota EN VIVO (modelo/valor/región/
+        # plazo/presupuesto/mensaje) para la sección «Datos del formulario» de la ficha —
+        # así se ve aunque el Flask todavía no lo haya guardado en shopify_meta.
+        if _info and _info.get("meta_note"):
+            for _mk, _mv in _info["meta_note"].items():
+                if _mv and not str(_meta.get(_mk) or "").strip():
+                    _meta[_mk] = _mv
+        _d["shopify_meta"] = _meta   # normalizado a dict + enriquecido
 
     # Registrar transiciones de ETAPA en el timeline + mantener el reloj SLA (lazy,
     # gateado, best-effort → no frena el render).
