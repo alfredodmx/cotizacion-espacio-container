@@ -1986,15 +1986,21 @@ def render_tab_sitio_web(**kwargs):
 
     # ── Selector de vista: Modelos (por defecto) / Tabla / Reels HOME ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
-    _vistas = ["Modelos", "Tabla", "Reels HOME"]
+    _vistas = ["Modelos", "Tabla", "Comparar", "Reels HOME"]
     _vicons = {"Modelos": ":material/grid_view:", "Tabla": ":material/table_rows:",
-               "Reels HOME": ":material/movie:"}
+               "Comparar": ":material/compare_arrows:", "Reels HOME": ":material/movie:"}
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
 
     # Modo "Reels HOME": ver/editar los videos reels de la sección de Shopify (bloques del tema).
     if _vista == "Reels HOME":
         _render_reels()
+        return
+
+    # Modo "Comparar": editar los metacampos de la sección "Comparar modelos" (compare-models.liquid)
+    # por modelo, agrupados por categoría (Resumen · Ambientes · Materialidad · Instalaciones · Llave en mano).
+    if _vista == "Comparar":
+        _render_comparar()
         return
 
     # ── MODELOS: selector de COLECCIÓN (antes pestaña "Ordenar web", ahora integrada aquí) ──
@@ -3300,4 +3306,304 @@ def _render_editor(pid):
     components.html(_form_html, height=int(_form_h), scrolling=False)   # el propio iframe se auto-ajusta
     # Nonce: fuerza re-ejecución del iframe en cada render → el botón flotante se RE-MONTA
     # siempre (tras publicar, cambiar de producto, etc.), en vez de reusar un iframe estático.
+    components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)   # botón flotante "Guardar y publicar"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  VISTA "COMPARAR": editor de los metacampos de la sección "Comparar modelos"
+#  (compare-models.liquid). Agrupa las características por categoría (igual que la
+#  sección de la web), por modelo. Namespace `custom`; keys con prefijo compare_.
+#  Los valores de LISTA (baño, cocina, …) se editan como textarea (una línea por
+#  ítem) y se guardan como list.single_line_text_field. Al guardar, cada campo se
+#  crea/actualiza vía metafieldsSet (o se borra si queda vacío).
+# ══════════════════════════════════════════════════════════════════════════════
+_CMP_NS = "custom"
+
+# (título de grupo, tipo, [(key, etiqueta, placeholder), ...])
+#   tipo "single" → input de una línea (single_line_text_field)
+#   tipo "list"   → textarea, una línea por ítem (list.single_line_text_field)
+_CMP_GROUPS = [
+    ("Resumen", "single", [
+        ("compare_tipo_container", "Tipo de container", "Ej: 40HC"),
+        ("compare_superficie", "Superficie útil", "Ej: 30 m²"),
+        ("compare_dimensiones", "Dimensiones", "Ej: 12,0 × 2,4 × 2,6 m"),
+        ("compare_capacidad", "Capacidad", "Ej: Hasta 4 personas"),
+        ("compare_dormitorios", "Dormitorios", "Ej: 2"),
+        ("compare_banos", "Baños", "Ej: 1"),
+        ("compare_entrega", "Plazo de entrega", "Ej: 8 semanas"),
+        ("compare_garantia", "Garantía", "Ej: 3 meses"),
+    ]),
+    ("Ambientes", "list", [
+        ("compare_dormitorios_detalle", "Dormitorios",
+         "Dormitorio principal con closet\nSegundo dormitorio\nAltillo opcional"),
+        ("compare_bano", "Baño",
+         "Ducha con receptáculo\nInodoro y lavamanos\nGrifería monomando\nCerámica en muros y piso"),
+        ("compare_cocina", "Cocina",
+         "Mueble base y cubierta\nLavaplatos de acero\nEspacio para cocina y refrigerador\nCampana"),
+        ("compare_living", "Living / comedor",
+         "Espacio integrado\nVentanal con vista\nEnchufes dobles"),
+    ]),
+    ("Materialidad y confort", "list", [
+        ("compare_estructura_detalle", "Estructura y seguridad",
+         "Container marítimo grado A\nEstructura de acero corten\nPuerta de seguridad"),
+        ("compare_revestimiento", "Revestimientos y terminaciones",
+         "Revestimiento interior en volcanita\nPiso SPC / vinílico\nCielo terminado y pintado"),
+        ("compare_aislacion", "Aislación y confort térmico",
+         "Aislación de poliuretano proyectado\nMuros, cielo y piso aislados\nControl de condensación"),
+        ("compare_ventanas", "Ventanas y puertas",
+         "Ventanas de termopanel\nMarcos de PVC / aluminio\nPuerta principal reforzada"),
+    ]),
+    ("Instalaciones", "list", [
+        ("compare_electricidad", "Electricidad",
+         "Tablero eléctrico con protecciones\nEnchufes y puntos de luz\nCertificación SEC (opcional)"),
+        ("compare_gasfiteria", "Gasfitería y agua caliente",
+         "Red de agua fría y caliente\nDescarga de alcantarillado\nConexión para calefont"),
+        ("compare_climatizacion", "Climatización",
+         "Preparado para aire acondicionado\nBuena ventilación cruzada"),
+    ]),
+    ("Llave en mano", "list", [
+        ("compare_incluye", "Qué incluye",
+         "Transporte a la región\nInstalación y nivelación\nPlanos de arquitectura\nAsesoría durante el proyecto"),
+    ]),
+]
+
+
+_CMP_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;background:transparent;font-family:Inter,'Segoe UI',system-ui,sans-serif;}
+  .cmpe{color:#0f172a;padding:2px 2px 96px;}
+  .cmpe-head{display:flex;align-items:center;gap:10px;margin:0 0 6px;}
+  .cmpe-model{font-family:Montserrat,sans-serif;font-weight:800;font-size:1.02rem;color:#0f172a;letter-spacing:-.01em;}
+  .cmpe-tag{font-family:Montserrat,sans-serif;font-size:.6rem;font-weight:800;text-transform:uppercase;
+    letter-spacing:.06em;color:#c2410c;background:#ffedd5;padding:3px 9px;border-radius:999px;}
+  .cmpe-note{font-size:.74rem;color:#64748b;line-height:1.5;margin:0 0 16px;background:#f8fafc;
+    border:1px solid #eef2f7;border-left:3px solid #f97316;border-radius:9px;padding:9px 12px;}
+  .cmpe-card{background:#fff;border:1px solid #e8ebf3;border-radius:14px;padding:16px 18px 18px;
+    margin-bottom:15px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+  .cmpe-gt{font-family:Montserrat,sans-serif;font-weight:800;font-size:.76rem;letter-spacing:.06em;
+    text-transform:uppercase;color:#0f172a;display:flex;align-items:center;gap:9px;margin:0 0 14px;}
+  .cmpe-gt::before{content:'';width:4px;height:15px;border-radius:3px;background:linear-gradient(180deg,#f97316,#ea580c);}
+  .cmpe-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 18px;}
+  .cmpe-f{display:flex;flex-direction:column;gap:5px;min-width:0;}
+  .cmpe-f.full{grid-column:1 / -1;}
+  .cmpe-lbl{font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.03em;}
+  .cmpe-hint{font-weight:600;color:#94a3b8;text-transform:none;letter-spacing:0;}
+  .cmpe-in,.cmpe-ta{border:1.4px solid #e2e8f0;border-radius:9px;padding:9px 11px;font-family:inherit;
+    font-size:.86rem;color:#0f172a;background:#fff;outline:none;width:100%;
+    transition:border-color .15s,box-shadow .15s;}
+  .cmpe-in:focus,.cmpe-ta:focus{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.13);}
+  .cmpe-ta{resize:vertical;min-height:104px;line-height:1.55;}
+  @media (max-width:640px){ .cmpe-grid{grid-template-columns:1fr;} }
+</style></head><body>
+<div class="cmpe">
+  <div class="cmpe-head"><span class="cmpe-model">__TITLE__</span><span class="cmpe-tag">Comparar modelos</span></div>
+  <div class="cmpe-note">Estas características alimentan la sección <b>“Comparar modelos”</b> de la web
+  (<code>compare-models.liquid</code>). Escribe una característica por línea en los cuadros de lista.
+  Las filas que dejes vacías <b>se ocultan solas</b> en la web. Pulsa <b>Guardar y publicar</b> para aplicar los cambios.</div>
+  __CARDS__
+</div>
+<script>
+(function(){
+  var D=document, W=window;
+  var PID="__PID__";
+  function fire(payload){
+    try{
+      var P=W.parent, PD=P.document;
+      var inp=PD.querySelector('.st-key-sw_savecmd input'); if(!inp) return;
+      var setter=Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, payload+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  function flds(){ return [].slice.call(D.querySelectorAll('.cmp-fld')); }
+  var BASE={};
+  flds().forEach(function(el){ BASE[el.getAttribute('data-key')]=el.value; });
+  function isDirty(){ var d=false; flds().forEach(function(el){ if(el.value!==BASE[el.getAttribute('data-key')]) d=true; }); return d; }
+  function setDirty(){ try{ W.parent._swDirty=isDirty(); }catch(e){} }
+  try{
+    var P=W.parent; P._swDirty=false;
+    P._swSave=function(){
+      var out=[];
+      flds().forEach(function(el){
+        var k=el.getAttribute('data-key');
+        if(el.value===BASE[k]) return;                 // sólo lo que cambió
+        out.push({ns:el.getAttribute('data-ns'),key:k,type:el.getAttribute('data-type'),
+                  id:el.getAttribute('data-id')||'',value:el.value});
+      });
+      fire(JSON.stringify({op:'comparar',pid:PID,fields:out}));
+    };
+  }catch(e){}
+  D.addEventListener('input',setDirty);
+  D.addEventListener('change',setDirty);
+})();
+</script></body></html>"""
+
+
+def _build_comparar_form(pid, title, cur):
+    """Arma el formulario HTML de la vista Comparar para UN modelo. `cur` = dict
+    {(namespace,key): metafield} con los valores actuales del producto. Devuelve
+    (html, alto_iframe)."""
+    def _field_html(key, label, ph, decl_type):
+        m = cur.get((_CMP_NS, key))
+        if m:                                   # ya existe: respeta su tipo actual (evita choque de definición)
+            _type = m.get("type") or decl_type
+            _id = str(m.get("id") or "")
+            _val = _especs_to_text(_type, m.get("value"))
+        else:
+            _type, _id, _val = decl_type, "", ""
+        if str(_type).startswith("list."):
+            return ('<div class="cmpe-f full">'
+                    f'<label class="cmpe-lbl">{_he(label)} <span class="cmpe-hint">· una línea por ítem</span></label>'
+                    f'<textarea class="cmpe-ta cmp-fld" data-ns="{_he(_CMP_NS)}" data-key="{_he(key)}" '
+                    f'data-type="{_he(_type)}" data-id="{_he(_id)}" placeholder="{_he(ph)}">{_he(_val)}</textarea>'
+                    '</div>')
+        return ('<div class="cmpe-f">'
+                f'<label class="cmpe-lbl">{_he(label)}</label>'
+                f'<input class="cmpe-in cmp-fld" data-ns="{_he(_CMP_NS)}" data-key="{_he(key)}" '
+                f'data-type="{_he(_type)}" data-id="{_he(_id)}" value="{_he(_val)}" placeholder="{_he(ph)}">'
+                '</div>')
+
+    _cards, _h = "", 150
+    for _gtitle, _kind, _fields in _CMP_GROUPS:
+        _decl = "list.single_line_text_field" if _kind == "list" else "single_line_text_field"
+        _rows = "".join(_field_html(k, lbl, ph, _decl) for (k, lbl, ph) in _fields)
+        _cards += (f'<div class="cmpe-card"><div class="cmpe-gt">{_he(_gtitle)}</div>'
+                   f'<div class="cmpe-grid">{_rows}</div></div>')
+        _h += 62 + (((len(_fields) + 1) // 2) * 80 if _kind == "single" else len(_fields) * 156) + 24
+    _h += 110
+    _html = (_CMP_FORM_TEMPLATE
+             .replace("__TITLE__", _he(title or "(sin título)"))
+             .replace("__PID__", _he(str(pid)))
+             .replace("__CARDS__", _cards))
+    return _html, _h
+
+
+def _guardar_comparar(pid, fields):
+    """Guarda en Shopify los metacampos de la vista Comparar (solo los CAMBIADOS que
+    manda el formulario). Lista → JSON; vacío con id → se borra. Devuelve lista de errores."""
+    _errs = []
+    for f in (fields or []):
+        _key = (f.get("key") or "").strip()
+        if not _key:
+            continue
+        _ns = f.get("ns") or _CMP_NS
+        _type = f.get("type") or "single_line_text_field"
+        _id = str(f.get("id") or "").strip()
+        _ser, _empty = _especs_serialize(_type, f.get("value"))
+        if _empty:
+            if _id:                              # se vació un campo existente → eliminar el metacampo
+                _ok, _e = _shop.eliminar_metafield(pid, _id)
+                if not _ok:
+                    _errs.append(_e)
+            continue                             # nuevo y vacío → nada que crear
+        _ok, _e = _shop.set_metafield_valor(pid, _ns, _key, _ser, _type)
+        if not _ok:
+            _errs.append(_e)
+    return _errs
+
+
+def _render_comparar():
+    """Vista Comparar: elige colección + modelo y edita sus características para la
+    sección 'Comparar modelos' de la web, agrupadas por categoría (form HTML)."""
+    st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 18, 0)}Comparar modelos'
+                '<span style="color:#94a3b8;font-weight:800;font-size:.72rem;margin-left:8px;">'
+                'edita lo que se ve en la sección de comparación de la web</span></div>',
+                unsafe_allow_html=True)
+
+    # Colecciones (cacheadas en sesión, igual que en Modelos).
+    _cols = st.session_state.get("sw_cols")
+    if _cols is None:
+        _cols, _ = _shop.listar_colecciones()
+        _cols = _cols or []
+        st.session_state["sw_cols"] = _cols
+    _col_map = {(c.get("title") or "(sin título)"): str(c.get("id")) for c in _cols}
+    _TODOS = "Todos los modelos (activos)"
+
+    st.markdown(
+        "<style>.st-key-sw_cmp_col label,.st-key-sw_cmp_col label *,.st-key-sw_cmp_model label,"
+        ".st-key-sw_cmp_model label *{font-family:Montserrat,sans-serif!important;font-weight:700!important;"
+        "font-size:0.78rem!important;letter-spacing:0.04em!important;text-transform:uppercase!important;"
+        "color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;}</style>",
+        unsafe_allow_html=True)
+
+    _c1, _c2 = st.columns([1, 1.4])
+    with _c1:
+        _colsel = st.selectbox("Colección", [_TODOS] + list(_col_map.keys()), key="sw_cmp_col",
+                               help="Filtra qué modelos aparecen para editar.")
+
+    with st.spinner("Trayendo modelos de Shopify…"):
+        if _colsel == _TODOS:
+            _prods, _perr = _cargar_productos("active")
+            _lst = [(str(p.get("id")), p.get("title") or "(sin título)") for p in (_prods or [])]
+        else:
+            _pl, _so, _perr = _shop.productos_de_coleccion(_col_map.get(_colsel))
+            _lst = [(str(p.get("id")), p.get("title") or "(sin título)") for p in (_pl or [])]
+    if _perr:
+        st.error(_perr, icon=":material/error:")
+        return
+    if not _lst:
+        st.info("No hay modelos en esa selección.")
+        return
+
+    # Etiquetas únicas para el selector (evita colisión si dos modelos se llaman igual).
+    _label_pid, _seen = {}, {}
+    for _pid, _t in _lst:
+        _lbl = _t
+        if _lbl in _seen:
+            _lbl = f"{_t} · {_pid[-4:]}"
+        _seen[_t] = True
+        _label_pid[_lbl] = _pid
+    with _c2:
+        _msel = st.selectbox("Modelo a editar", list(_label_pid.keys()), key="sw_cmp_model")
+    _pid = _label_pid.get(_msel) or _lst[0][0]
+
+    # Puente de guardado (input oculto sw_savecmd; se auto-limpia tras procesar).
+    if st.session_state.pop("_sw_reset_savecmd", False):
+        st.session_state["sw_savecmd"] = ""
+    _sc = st.text_input("savecmd", key="sw_savecmd", label_visibility="collapsed")
+    if _sc and "|" in _sc:
+        _sbody, _sts = _sc.rsplit("|", 1)
+        if _sts != st.session_state.get("sw_savecmd_ts"):
+            st.session_state["sw_savecmd_ts"] = _sts
+            st.session_state["_sw_reset_savecmd"] = True
+            import json as _json
+            try:
+                _data = _json.loads(_sbody)
+            except Exception:
+                _data = None
+            if _data and _data.get("op") == "comparar":
+                _psave = str(_data.get("pid") or _pid)
+                with st.spinner("Guardando y publicando en Shopify…"):
+                    _errs = _guardar_comparar(_psave, _data.get("fields") or [])
+                st.session_state.pop(f"sw_cmp_mf_{_psave}", None)   # recargar valores frescos
+                if _errs:
+                    for _e in _errs[:5]:
+                        st.error(_e, icon=":material/error:")
+                else:
+                    st.session_state["sw_toast"] = "Comparación guardada y publicada ✓"
+                    st.rerun()
+
+    # Metacampos actuales del modelo (cacheados por producto; se limpian al guardar).
+    _mf = st.session_state.get(f"sw_cmp_mf_{_pid}")
+    if _mf is None:
+        with st.spinner("Cargando características del modelo…"):
+            _mf, _mferr = _shop.listar_metafields(_pid)
+        if _mferr:
+            st.warning(_mferr, icon=":material/warning:")
+            _mf = []
+        st.session_state[f"sw_cmp_mf_{_pid}"] = _mf
+    _cur = {(m.get("namespace"), m.get("key")): m for m in (_mf or [])}
+
+    _title = _msel.split(" · ")[0] if _msel else ""
+    _form_html, _form_h = _build_comparar_form(_pid, _title, _cur)
+    components.html(_form_html, height=int(_form_h), scrolling=False)
     components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)   # botón flotante "Guardar y publicar"

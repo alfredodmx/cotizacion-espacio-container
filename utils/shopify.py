@@ -941,6 +941,30 @@ def set_metafield_referencia(pid, namespace, key, ref_gid, mtype="file_reference
     return True, None
 
 
+def set_metafield_valor(pid, namespace, key, value, mtype="single_line_text_field") -> tuple:
+    """Fija (crea o ACTUALIZA) un metacampo de VALOR (texto o lista) del producto vía
+    metafieldsSet — idempotente por owner+namespace+key, así que NO hace falta el id previo.
+    Para tipos `list.*`, `value` debe ser un JSON array serializado (string), p.ej.
+    '["Ducha","Lavamanos"]'. Devuelve (ok, error). Requiere write_products. DEFENSIVO.
+
+    OJO: si el metacampo ya tiene una DEFINICIÓN en la tienda con otro tipo, Shopify
+    rechaza el cambio de tipo; por eso el llamador reusa el tipo existente cuando el
+    metacampo ya tiene valor."""
+    if not str(value or "").strip():
+        return False, "Valor vacío (usa borrar_metafield_por_clave para eliminarlo)."
+    q = ("mutation($m:[MetafieldsSetInput!]!){ metafieldsSet(metafields:$m){ "
+         "metafields{ id } userErrors{ field message } } }")
+    _m = [{"ownerId": _gid_product(pid), "namespace": namespace, "key": key,
+           "type": mtype, "value": str(value)}]
+    data, err = _graphql(q, {"m": _m})
+    if err:
+        return False, err
+    _errs = (((data or {}).get("metafieldsSet") or {}).get("userErrors") or [])
+    if _errs:
+        return False, "; ".join(e.get("message", "") for e in _errs) or "No se pudo guardar el metacampo."
+    return True, None
+
+
 def borrar_metafield_por_clave(pid, namespace, key) -> tuple:
     """Elimina un metacampo del producto por owner+namespace+key (GraphQL). Devuelve (ok, error)."""
     q = ("mutation($m:[MetafieldIdentifierInput!]!){ metafieldsDelete(metafields:$m){ "
