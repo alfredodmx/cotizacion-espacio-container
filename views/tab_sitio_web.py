@@ -3312,58 +3312,53 @@ def _render_editor(pid):
 # ══════════════════════════════════════════════════════════════════════════════
 #  VISTA "COMPARAR": editor de los metacampos de la sección "Comparar modelos"
 #  (compare-models.liquid). Agrupa las características por categoría (igual que la
-#  sección de la web), por modelo. Namespace `custom`; keys con prefijo compare_.
-#  Los valores de LISTA (baño, cocina, …) se editan como textarea (una línea por
-#  ítem) y se guardan como list.single_line_text_field. Al guardar, cada campo se
-#  crea/actualiza vía metafieldsSet (o se borra si queda vacío).
+#  sección de la web), por modelo. REUTILIZA los metacampos existentes (spec_*,
+#  compare_*) + 5 nuevos; namespace `custom`.
+#  Los campos de categoría (baño, cocina, …) se editan como textarea (una línea por
+#  ítem) pero se guardan como single_line_text_field con los ítems separados por coma
+#  (así el Liquid los muestra como viñetas). Al guardar, cada campo se crea/actualiza
+#  vía metafieldsSet (o se borra si queda vacío).
 # ══════════════════════════════════════════════════════════════════════════════
 _CMP_NS = "custom"
 
 # (título de grupo, tipo, [(key, etiqueta, placeholder), ...])
-#   tipo "single" → input de una línea (single_line_text_field)
-#   tipo "list"   → textarea, una línea por ítem (list.single_line_text_field)
+#   tipo "single"  → input de una línea (valor tal cual)
+#   tipo "bullets" → textarea (una línea por ítem) → se guarda separado por coma → viñetas
+# Las keys apuntan a los metacampos EXISTENTES (spec_*/compare_*); solo 5 son nuevos
+# (compare_tipo_container, compare_dimensiones, compare_capacidad, compare_garantia,
+#  compare_gasfiteria).
 _CMP_GROUPS = [
     ("Resumen", "single", [
         ("compare_tipo_container", "Tipo de container", "Ej: 40HC"),
-        ("compare_superficie", "Superficie útil", "Ej: 30 m²"),
+        ("spec_superficie", "Superficie útil", "Ej: 30 m²"),
         ("compare_dimensiones", "Dimensiones", "Ej: 12,0 × 2,4 × 2,6 m"),
         ("compare_capacidad", "Capacidad", "Ej: Hasta 4 personas"),
         ("compare_dormitorios", "Dormitorios", "Ej: 2"),
         ("compare_banos", "Baños", "Ej: 1"),
-        ("compare_entrega", "Plazo de entrega", "Ej: 8 semanas"),
+        ("spec_entrega", "Plazo de entrega", "Ej: 8 semanas"),
         ("compare_garantia", "Garantía", "Ej: 3 meses"),
     ]),
-    ("Ambientes", "list", [
-        ("compare_dormitorios_detalle", "Dormitorios",
-         "Dormitorio principal con closet\nSegundo dormitorio\nAltillo opcional"),
-        ("compare_bano", "Baño",
+    ("Ambientes", "bullets", [
+        ("spec_bano", "Baño",
          "Ducha con receptáculo\nInodoro y lavamanos\nGrifería monomando\nCerámica en muros y piso"),
-        ("compare_cocina", "Cocina",
+        ("spec_cocina", "Cocina",
          "Mueble base y cubierta\nLavaplatos de acero\nEspacio para cocina y refrigerador\nCampana"),
-        ("compare_living", "Living / comedor",
-         "Espacio integrado\nVentanal con vista\nEnchufes dobles"),
+        ("spec_piso", "Piso",
+         "Piso SPC / vinílico\nResistente a la humedad"),
     ]),
-    ("Materialidad y confort", "list", [
-        ("compare_estructura_detalle", "Estructura y seguridad",
+    ("Materialidad y confort", "bullets", [
+        ("spec_estructura", "Estructura y seguridad",
          "Container marítimo grado A\nEstructura de acero corten\nPuerta de seguridad"),
-        ("compare_revestimiento", "Revestimientos y terminaciones",
-         "Revestimiento interior en volcanita\nPiso SPC / vinílico\nCielo terminado y pintado"),
-        ("compare_aislacion", "Aislación y confort térmico",
+        ("spec_aislacion", "Aislación y confort térmico",
          "Aislación de poliuretano proyectado\nMuros, cielo y piso aislados\nControl de condensación"),
-        ("compare_ventanas", "Ventanas y puertas",
+        ("spec_ventanas", "Ventanas y puertas",
          "Ventanas de termopanel\nMarcos de PVC / aluminio\nPuerta principal reforzada"),
     ]),
-    ("Instalaciones", "list", [
-        ("compare_electricidad", "Electricidad",
+    ("Instalaciones", "bullets", [
+        ("spec_electrico", "Electricidad",
          "Tablero eléctrico con protecciones\nEnchufes y puntos de luz\nCertificación SEC (opcional)"),
         ("compare_gasfiteria", "Gasfitería y agua caliente",
          "Red de agua fría y caliente\nDescarga de alcantarillado\nConexión para calefont"),
-        ("compare_climatizacion", "Climatización",
-         "Preparado para aire acondicionado\nBuena ventilación cruzada"),
-    ]),
-    ("Llave en mano", "list", [
-        ("compare_incluye", "Qué incluye",
-         "Transporte a la región\nInstalación y nivelación\nPlanos de arquitectura\nAsesoría durante el proyecto"),
     ]),
 ]
 
@@ -3437,6 +3432,7 @@ _CMP_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
         var k=el.getAttribute('data-key');
         if(el.value===BASE[k]) return;                 // sólo lo que cambió
         out.push({ns:el.getAttribute('data-ns'),key:k,type:el.getAttribute('data-type'),
+                  kind:el.getAttribute('data-cmp-kind')||'single',
                   id:el.getAttribute('data-id')||'',value:el.value});
       });
       fire(JSON.stringify({op:'comparar',pid:PID,fields:out}));
@@ -3448,37 +3444,50 @@ _CMP_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
 </script></body></html>"""
 
 
+def _bullets_to_text(s):
+    """Valor guardado (una línea, ítems separados por coma) → texto del textarea
+    (un ítem por línea) para editar cómodo. Separa por coma, ·, • o ; ."""
+    import re
+    return "\n".join(p.strip() for p in re.split(r"[·•;,\n]", str(s or "")) if p.strip())
+
+
+def _bullets_to_value(text):
+    """Texto del textarea (un ítem por línea) → valor a guardar (single line, ítems
+    separados por ', ' para que el Liquid los muestre como viñetas)."""
+    import re
+    return ", ".join(p.strip() for p in re.split(r"[·•;,\n]", str(text or "")) if p.strip())
+
+
 def _build_comparar_form(pid, title, cur):
     """Arma el formulario HTML de la vista Comparar para UN modelo. `cur` = dict
     {(namespace,key): metafield} con los valores actuales del producto. Devuelve
     (html, alto_iframe)."""
-    def _field_html(key, label, ph, decl_type):
+    def _field_html(key, label, ph, kind):
         m = cur.get((_CMP_NS, key))
-        if m:                                   # ya existe: respeta su tipo actual (evita choque de definición)
-            _type = m.get("type") or decl_type
-            _id = str(m.get("id") or "")
-            _val = _especs_to_text(_type, m.get("value"))
-        else:
-            _type, _id, _val = decl_type, "", ""
-        if str(_type).startswith("list."):
+        _type = (m.get("type") if m else "") or "single_line_text_field"
+        _id = str(m.get("id") or "") if m else ""
+        _raw = _especs_to_text(_type, m.get("value")) if m else ""
+        if kind == "bullets":
+            # Se edita como textarea (1 ítem por línea); se guarda como single line
+            # separado por coma → viñetas en la web. Convertimos coma→línea para editar.
+            _val = _bullets_to_text(_raw)
             return ('<div class="cmpe-f full">'
-                    f'<label class="cmpe-lbl">{_he(label)} <span class="cmpe-hint">· una línea por ítem</span></label>'
-                    f'<textarea class="cmpe-ta cmp-fld" data-ns="{_he(_CMP_NS)}" data-key="{_he(key)}" '
-                    f'data-type="{_he(_type)}" data-id="{_he(_id)}" placeholder="{_he(ph)}">{_he(_val)}</textarea>'
-                    '</div>')
+                    f'<label class="cmpe-lbl">{_he(label)} <span class="cmpe-hint">· una característica por línea</span></label>'
+                    f'<textarea class="cmpe-ta cmp-fld" data-cmp-kind="bullets" data-ns="{_he(_CMP_NS)}" '
+                    f'data-key="{_he(key)}" data-type="{_he(_type)}" data-id="{_he(_id)}" '
+                    f'placeholder="{_he(ph)}">{_he(_val)}</textarea></div>')
         return ('<div class="cmpe-f">'
                 f'<label class="cmpe-lbl">{_he(label)}</label>'
-                f'<input class="cmpe-in cmp-fld" data-ns="{_he(_CMP_NS)}" data-key="{_he(key)}" '
-                f'data-type="{_he(_type)}" data-id="{_he(_id)}" value="{_he(_val)}" placeholder="{_he(ph)}">'
-                '</div>')
+                f'<input class="cmpe-in cmp-fld" data-cmp-kind="single" data-ns="{_he(_CMP_NS)}" '
+                f'data-key="{_he(key)}" data-type="{_he(_type)}" data-id="{_he(_id)}" '
+                f'value="{_he(_raw)}" placeholder="{_he(ph)}"></div>')
 
     _cards, _h = "", 150
     for _gtitle, _kind, _fields in _CMP_GROUPS:
-        _decl = "list.single_line_text_field" if _kind == "list" else "single_line_text_field"
-        _rows = "".join(_field_html(k, lbl, ph, _decl) for (k, lbl, ph) in _fields)
+        _rows = "".join(_field_html(k, lbl, ph, _kind) for (k, lbl, ph) in _fields)
         _cards += (f'<div class="cmpe-card"><div class="cmpe-gt">{_he(_gtitle)}</div>'
                    f'<div class="cmpe-grid">{_rows}</div></div>')
-        _h += 62 + (((len(_fields) + 1) // 2) * 80 if _kind == "single" else len(_fields) * 156) + 24
+        _h += 62 + (((len(_fields) + 1) // 2) * 80 if _kind == "single" else len(_fields) * 150) + 24
     _h += 110
     _html = (_CMP_FORM_TEMPLATE
              .replace("__TITLE__", _he(title or "(sin título)"))
@@ -3489,16 +3498,23 @@ def _build_comparar_form(pid, title, cur):
 
 def _guardar_comparar(pid, fields):
     """Guarda en Shopify los metacampos de la vista Comparar (solo los CAMBIADOS que
-    manda el formulario). Lista → JSON; vacío con id → se borra. Devuelve lista de errores."""
+    manda el formulario). Categorías (kind bullets) → single line separado por coma;
+    resumen → valor tal cual (respeta el tipo existente). Vacío con id → se borra.
+    Devuelve lista de errores."""
     _errs = []
     for f in (fields or []):
         _key = (f.get("key") or "").strip()
         if not _key:
             continue
         _ns = f.get("ns") or _CMP_NS
-        _type = f.get("type") or "single_line_text_field"
         _id = str(f.get("id") or "").strip()
-        _ser, _empty = _especs_serialize(_type, f.get("value"))
+        if (f.get("kind") or "single") == "bullets":
+            _ser = _bullets_to_value(f.get("value"))
+            _type = "single_line_text_field"
+            _empty = (_ser.strip() == "")
+        else:
+            _type = f.get("type") or "single_line_text_field"
+            _ser, _empty = _especs_serialize(_type, f.get("value"))
         if _empty:
             if _id:                              # se vació un campo existente → eliminar el metacampo
                 _ok, _e = _shop.eliminar_metafield(pid, _id)
