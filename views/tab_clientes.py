@@ -2623,8 +2623,11 @@ def _render_datos(cid, cli):
     with _hc1:
         st.markdown(_zsec_hd("Datos del cliente", _ZIC_DATOS), unsafe_allow_html=True)
     with _hc2:
-        if not _editing and st.button("Editar", use_container_width=True,
-                                      icon=":material/edit:", key="_cli_ed_open"):
+        # sitio_web ve los datos ENMASCARADOS; ocultamos «Editar» para que no pueda
+        # sobrescribir los datos reales con las equis (ni ver el formulario de edición).
+        if (not _editing and st.session_state.get("rol_usuario") != "sitio_web"
+                and st.button("Editar", use_container_width=True,
+                              icon=":material/edit:", key="_cli_ed_open")):
             st.session_state["_cli_edit"] = cid
             st.rerun(scope="fragment")
     if _editing:
@@ -4582,8 +4585,10 @@ def _render_ficha(cid: str, data: list):
         # El ejecutivo asignado se muestra en el header SOLO al ejecutivo (que no
         # reasigna); a root/admin se lo muestra el selectbox vivo de más abajo, así
         # el header no queda desfasado tras asignar dentro del fragment.
-        _es_gestor_fh = st.session_state.get("rol_usuario") in ("root", "admin")
-        _sub_asig = "" if _es_gestor_fh else f" · {_esc(_asig)}"
+        # El asignado se muestra en el header SOLO a quien NO tiene el selector de
+        # asignación abajo (el ejecutivo). root/admin y sitio_web lo ven en el selector.
+        _rol_fh = st.session_state.get("rol_usuario")
+        _sub_asig = "" if _rol_fh in ("root", "admin", "sitio_web") else f" · {_esc(_asig)}"
         st.markdown(
             '<div class="cli-fh">'
             f'<div class="cli-fh-av">{_esc(_initials(cli.get("nombre")))}</div>'
@@ -4627,10 +4632,20 @@ def _render_ficha(cid: str, data: list):
         _render_datos(cid, cli)
 
         # ── Asignar a un ejecutivo (dispara la notificación a ese ejecutivo) ──
-        # SOLO root/admin (re)asignan; el ejecutivo ve su ficha pero no reasigna.
-        if st.session_state.get("rol_usuario") in ("root", "admin"):
+        # root/admin (re)asignan siempre; sitio_web TAMBIÉN (su función es derivar el
+        # lead a un ejecutivo). El ejecutivo ve su ficha pero no reasigna.
+        _masked = (st.session_state.get("rol_usuario") == "sitio_web")
+        if st.session_state.get("rol_usuario") in ("root", "admin") or _masked:
             st.markdown(_zsec("Asignación de ejecutivo", _ZIC_ASIGNAR), unsafe_allow_html=True)
             _render_asignar(cid, cli)
+
+        # sitio_web: ficha REDUCIDA — solo nombre + datos de contacto y de formulario
+        # ENMASCARADOS (cli ya viene enmascarado desde _data_render) + asignación. Se
+        # corta ANTES de correos/actividades/calificación/presupuestos/historial para
+        # que no pueda filtrar información del contacto.
+        if _masked:
+            _render_shopify_datos(cli)   # «Datos del formulario», con los valores en xxxx
+            return
 
         # "Enviar correo" abre el compositor (Resend); "Nueva actividad" abre el
         # formulario para agendar. El cierre del drawer va por su X / clic fuera /
@@ -5025,6 +5040,29 @@ def _render_agregar_dialog(rol="root", user_email=""):
     _dlg()
 
 
+# ── Enmascarado para el rol sitio_web ─────────────────────────────────────────
+_CLI_MASK = "••••••"   # ••••••
+_CLI_MASK_FIELDS = ("email", "telefono", "rut", "direccion", "comuna", "region",
+                    "empresa", "rut_empresa", "_interes")
+
+
+def _cli_mask_sitio_web(d: dict) -> dict:
+    """Copia del cliente con los datos de CONTACTO y de FORMULARIO enmascarados, para
+    el rol `sitio_web` (solo puede ver el NOMBRE + asignar un ejecutivo). El enmascarado
+    es SERVER-SIDE: los valores reales NO llegan al navegador (ni en el atributo data-*
+    del buscador de las tarjetas). Conserva id/nombre/estado/score/asignación y el TIPO
+    de formulario (la etiqueta, no los datos). No muta el original."""
+    m = dict(d)
+    for _k in _CLI_MASK_FIELDS:
+        if str(m.get(_k) or "").strip():
+            m[_k] = _CLI_MASK
+    _sm = m.get("shopify_meta")
+    if isinstance(_sm, dict) and _sm:
+        m["shopify_meta"] = {_k: (_CLI_MASK if str(_v or "").strip() else _v)
+                             for _k, _v in _sm.items()}
+    return m
+
+
 # ── Entrada del tab ───────────────────────────────────────────────────────────
 
 def render_tab_clientes(**kwargs):
@@ -5104,6 +5142,11 @@ def render_tab_clientes(**kwargs):
     except Exception:
         pass
 
+    # Vista ENMASCARADA para sitio_web: mismas tarjetas y ficha, pero con los datos de
+    # contacto y de formulario en xxxx (enmascarado SERVER-SIDE). Las campañas y las
+    # acciones de gestor (asignar/eliminar/dedup) siguen usando `data` REAL.
+    _data_render = [_cli_mask_sitio_web(d) for d in data] if _solo_campana else data
+
     # Puente oculto: click en fila/tarjeta → abre la ficha.
     st.markdown('<style>.st-key-_cli_cmd{position:absolute!important;left:-9999px!important;'
                 'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
@@ -5114,11 +5157,8 @@ def render_tab_clientes(**kwargs):
         _p = _cmd.split("|")
         if _p[-1] != st.session_state.get("_cli_cmd_ts"):
             st.session_state["_cli_cmd_ts"] = _p[-1]
-            if _solo_campana:
-                # Rol acotado: ficha / crear presupuesto / eliminar están bloqueados.
-                # Feedback en el mismo click (equivale al tooltip "sin permisos").
-                st.toast("No tienes permiso para esa acción.", icon=":material/lock:")
-            elif _p[0] == "open" and len(_p) >= 3:
+            if _p[0] == "open" and len(_p) >= 3:
+                # Abrir ficha: permitido para TODOS (sitio_web la ve ENMASCARADA).
                 st.session_state["_cli_ficha"] = _p[1]
                 st.session_state["_cli_just_opened"] = True   # dispara la animación de entrada
                 # ficha nueva → formularios/paneles (actividad, correo, edición) cerrados
@@ -5127,6 +5167,9 @@ def render_tab_clientes(**kwargs):
                 st.session_state.pop("_cli_mail_open", None)
                 st.session_state.pop("_cli_edit", None)
                 st.session_state.pop("_cli_vercorreo", None)
+            elif _solo_campana:
+                # sitio_web: abrir ficha SÍ (arriba); crear presupuesto / eliminar NO.
+                st.toast("No tienes permiso para esa acción.", icon=":material/lock:")
             elif _p[0] == "nuevo" and len(_p) >= 3:
                 # Crear presupuesto para este cliente (menú contextual pipeline/maestro).
                 _cobj = next((d for d in data if str(d.get("id")) == _p[1]), None)
@@ -5477,11 +5520,11 @@ def render_tab_clientes(**kwargs):
             st.markdown(_build_msel_bar(), unsafe_allow_html=True)
 
     if _view == "Maestro":
-        _render_maestro(data, _msel)
+        _render_maestro(_data_render, _msel)
     elif _view == "Bandeja":
-        _render_bandeja(data, _msel)
+        _render_bandeja(_data_render, _msel)
     else:
-        _render_pipeline(data, _msel)
+        _render_pipeline(_data_render, _msel)
 
     # Handler de click (abre ficha) + menú contextual + filtros/búsqueda + salida.
     # `_cliSoloCampana` suprime el menú contextual (crear/ver/eliminar) para el rol acotado.
@@ -5513,11 +5556,11 @@ def render_tab_clientes(**kwargs):
     elif st.session_state.pop("_camp_open", False) and (_es_gestor or _solo_campana):
         _render_campana_dialog(data)
     else:
-        # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment). El rol
-        # acotado NO abre fichas (defensa extra: el puente ya lo bloquea).
+        # Ficha 360 (one-shot: pop del flag; el dialog persiste vía su fragment). Para
+        # sitio_web se renderiza ENMASCARADA (usa _data_render + ficha reducida).
         _fid = st.session_state.pop("_cli_ficha", None)
-        if _fid and not _solo_campana:
-            _render_ficha(_fid, data)
+        if _fid:
+            _render_ficha(_fid, _data_render)
 
     # Diálogo de alta (one-shot). El ejecutivo lo crea auto-asignado a sí mismo.
     if st.session_state.get("_cli_add_open"):
