@@ -3942,6 +3942,28 @@ def _hero_media_card_html(side, s, prev=None):
         '</div>')
 
 
+def _hero_html_to_text(value):
+    """Richtext de un setting de TEMA (HTML: <p>…</p>) → texto plano para el textarea
+    (un párrafo por línea; <li> → '- '). Si no trae tags, devuelve el texto tal cual."""
+    import re as _r, html as _h
+    s = str(value or "")
+    if not s.strip():
+        return ""
+    s = _r.sub(r"(?i)<li[^>]*>", "- ", s)
+    s = _r.sub(r"(?i)</p\s*>|<br\s*/?>|</li\s*>|</h[1-6]\s*>", "\n", s)
+    s = _r.sub(r"<[^>]+>", "", s)        # quitar el resto de etiquetas
+    s = _h.unescape(s)
+    return "\n".join(ln.strip() for ln in s.split("\n") if ln.strip())
+
+
+def _hero_text_to_html(text):
+    """Texto plano del textarea → HTML válido para un setting richtext de TEMA: cada línea
+    no vacía = un <p> (Shopify exige <p>/<ul>/<ol>/<h1-6> en el nivel superior)."""
+    import html as _h
+    _paras = [_h.escape(ln.strip()) for ln in str(text or "").split("\n") if ln.strip()]
+    return "".join(f"<p>{p}</p>" for p in _paras)
+
+
 def _hero_mq_row_html(mqid, text, highlight, hidden):
     """Una fila editable del marquee: texto + naranjo + visible + eliminar."""
     _oc = " checked" if highlight else ""
@@ -4003,7 +4025,7 @@ def _build_hero_form(info, media_prev=None, ticker=None):
                     f'<label class="hero-lbl">{_he(lbl)}</label>'
                     f'<textarea class="hero-ta" data-skey="{k}" data-stype="textarea">{_he(_v(k))}</textarea></div>')
         if t == "richtext":
-            _txt = _richtext_to_text(s.get(k))
+            _txt = _hero_html_to_text(s.get(k))
             return ('<div class="hero-f full">'
                     f'<label class="hero-lbl">{_he(lbl)}</label>'
                     f'<textarea class="hero-ta" data-skey="{k}" data-stype="richtext">{_he(_txt)}</textarea></div>')
@@ -4087,7 +4109,7 @@ def _guardar_hero(info, data):
         elif _t == "checkbox":
             _patch[_k] = bool(_v)
         elif _t == "richtext":
-            _patch[_k] = _text_to_richtext(str(_v or ""))
+            _patch[_k] = _hero_text_to_html(str(_v or ""))
         else:
             _patch[_k] = str(_v if _v is not None else "")
 
