@@ -1000,6 +1000,64 @@ html.ec-tab-loading #_usr_header_bar { visibility: visible !important; opacity: 
   }}
   W._ec_show_preloader = animate;
 
+  // Preloader fullscreen que ESPERA a que la app autenticada esté lista (aparece
+  // #_usr_header_bar y stMain se estabiliza), en vez de un temporizador fijo. Se usa
+  // al enviar el login y al restaurar la sesión (?_sess), para que nunca se vea el
+  // sistema armándose "crudo". `failGrace` = ms antes de poder abortar si terminamos en
+  // el LOGIN (restauración inválida / credenciales erróneas). SIEMPRE termina (tope duro).
+  function animateHold(failGrace) {{
+    var el = D.getElementById('_ec_preloader');
+    if (!el) return;
+    if (W._ec_pre_iv) {{ clearInterval(W._ec_pre_iv); W._ec_pre_iv = null; }}
+    if (W._ec_hold_obs) {{ try {{ W._ec_hold_obs.disconnect(); }} catch(e){{}} W._ec_hold_obs = null; }}
+    var bar = el.querySelector('#_ec_pre_bar');
+    var pctEl = el.querySelector('#_ec_pre_pct');
+    var msgEl = el.querySelector('#_ec_pre_msg');
+    el.classList.remove('fade-out');
+    el.style.display = 'flex'; el.style.opacity = '1'; el.style.pointerEvents = 'auto';
+    if (bar) bar.style.width = '0%';
+    if (pctEl) pctEl.textContent = '0%';
+    if (msgEl) msgEl.textContent = msgs[0];
+    var t0 = Date.now(), lastMut = Date.now(), authSeen = false;
+    var main = D.querySelector('[data-testid="stMain"]') || D.body;
+    try {{
+      W._ec_hold_obs = new MutationObserver(function(){{ lastMut = Date.now(); }});
+      W._ec_hold_obs.observe(main, {{ childList: true, subtree: true }});
+    }} catch(e) {{}}
+    var T_MIN = 500, T_STABLE = 500, T_HARD = 15000;
+    var FG = (typeof failGrace === 'number') ? failGrace : 1500;
+    function finish() {{
+      if (W._ec_pre_iv) {{ clearInterval(W._ec_pre_iv); W._ec_pre_iv = null; }}
+      try {{ W._ec_hold_obs.disconnect(); }} catch(e){{}} W._ec_hold_obs = null;
+      if (bar) bar.style.width = '100%';
+      if (pctEl) pctEl.textContent = '100%';
+      setTimeout(function(){{
+        var e2 = D.getElementById('_ec_preloader'); if (!e2) return;
+        e2.classList.add('fade-out');
+        setTimeout(function(){{ e2.style.display = 'none'; e2.style.opacity = '1'; e2.classList.remove('fade-out'); }}, T_FADE);
+      }}, 150);
+    }}
+    W._ec_pre_iv = setInterval(function(){{
+      var elapsed = Date.now() - t0, sinceMut = Date.now() - lastMut;
+      if (D.getElementById('_usr_header_bar')) authSeen = true;
+      var pct = authSeen ? (92 + 8 * Math.min(sinceMut / T_STABLE, 1)) : (92 * (1 - Math.exp(-elapsed / 1400)));
+      if (bar) bar.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+      var idx = Math.min(Math.floor(pct / 25), msgs.length - 1);
+      if (msgEl && msgEl.textContent !== msgs[idx]) msgEl.textContent = msgs[idx];
+      // Éxito: la app autenticada apareció y stMain se estabilizó.
+      if (authSeen && elapsed >= T_MIN && sinceMut >= T_STABLE) {{ finish(); return; }}
+      // Aborto: terminamos en el LOGIN (no hay header) tras el margen → revela el login.
+      if (!authSeen && elapsed > FG) {{
+        var atLogin = D.querySelector('[class*="st-key-login_"]');
+        if (atLogin && sinceMut >= 400) {{ finish(); return; }}
+      }}
+      // Tope duro: nunca quedarse pegado.
+      if (elapsed > T_HARD) {{ finish(); return; }}
+    }}, 60);
+  }}
+  W._ec_show_hold = animateHold;
+
   // Posiciona el tab-preloader sobre el área de contenido principal
   // (debajo del header fijo, a la derecha del sidebar).
   function positionTab(el) {{
@@ -1147,13 +1205,31 @@ html.ec-tab-loading #_usr_header_bar { visibility: visible !important; opacity: 
   }}
   W._ec_show_tab_preloader = animateTab;
 
-  // Carga inicial de la pestaña del navegador → preloader oscuro fullscreen.
+  // Carga inicial: decide qué preloader usar.
+  //  · App autenticada ya montada (reruns/navegación): NUNCA tapar (la navegación usa su
+  //    propio tab-preloader). Así el preloader de carga no reaparece en cada rerun.
+  //  · Restaurando sesión (?_sess) o con token guardado (redirección inminente a ?_sess):
+  //    ESPERA a la app autenticada → no se ve el login parpadear ni el sistema crudo.
+  //  · Primera carga sin sesión: preloader fijo normal (el login es liviano).
   try {{
-    if (W.sessionStorage.getItem('_ec_pre_initial') !== '1') {{
+    var _hasHeader = !!D.getElementById('_usr_header_bar');
+    var _hasLogin  = !!D.querySelector('[class*="st-key-login_"]');
+    var _restoring = (W.location.search.indexOf('_sess=') !== -1);
+    var _hasTok = false; try {{ _hasTok = !!W.localStorage.getItem('ec_sess'); }} catch(e){{}}
+    if (_hasHeader) {{
+      /* app ya montada → no mostrar el preloader de carga */
+    }} else if (_restoring) {{
+      animateHold(1500);
+    }} else if (_hasTok) {{
+      /* carga fresca CON token guardado (no autenticado aún): la redirección a ?_sess
+         es inminente → tapamos para que no parpadee el login. `_hasLogin` es sólo
+         informativo (el form puede no estar aún en el DOM cuando corre este script). */
+      animateHold(3500);
+    }} else if (W.sessionStorage.getItem('_ec_pre_initial') !== '1') {{
       W.sessionStorage.setItem('_ec_pre_initial', '1');
       animate(T_TOTAL);
     }}
-  }} catch(e) {{ animate(T_TOTAL); }}
+  }} catch(e) {{ try {{ animate(T_TOTAL); }} catch(e2) {{}} }}
 
   // Click handlers: nav del sidebar → tab preloader blanco;
   // submit de form (login) → fullscreen oscuro.
@@ -1169,9 +1245,10 @@ html.ec-tab-loading #_usr_header_bar { visibility: visible !important; opacity: 
       var inForm = t.closest('form, [data-testid="stForm"]');
       if (inForm && clickedBtn.type !== 'button') {{
         // Si #_usr_header_bar existe estamos en la app autenticada → tab preloader.
-        // Si no existe estamos en login → fullscreen oscuro.
+        // Si no existe estamos en login → fullscreen oscuro que ESPERA a que la app
+        // autenticada aparezca (si las credenciales fallan, se aborta tras el margen).
         var inApp = !!D.getElementById('_usr_header_bar');
-        if (inApp) {{ animateTab(); }} else {{ animate(2200); }}
+        if (inApp) {{ animateTab(); }} else {{ animateHold(2500); }}
         return;
       }}
     }}, true);
