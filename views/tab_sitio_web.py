@@ -3762,7 +3762,28 @@ _HERO_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
   .hero-mpick:hover{border-color:#f97316;color:#ea580c;}
   .hero-mfile{display:none;}
   .hero-mchosen{font-size:.72rem;color:#16a34a;font-weight:700;min-height:14px;}
-  @media (max-width:640px){ .hero-grid,.hero-media{grid-template-columns:1fr;} }
+  .hero-mprev video{width:100%;max-height:150px;border-radius:8px;background:#000;display:block;}
+  /* marquee */
+  .hero-mq{margin-top:14px;}
+  .hero-mq-list{display:flex;flex-direction:column;gap:8px;margin:6px 0 10px;}
+  .hero-mq-row{display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #eef2f7;
+    border-radius:10px;padding:7px 9px;}
+  .hero-mq-text{flex:1;min-width:0;border:1.4px solid #e2e8f0;border-radius:8px;padding:8px 10px;
+    font-family:inherit;font-size:.85rem;color:#0f172a;outline:none;background:#fff;}
+  .hero-mq-text:focus{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.13);}
+  .hero-mq-tog{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;
+    color:#475569;text-transform:uppercase;letter-spacing:.02em;cursor:pointer;flex:0 0 auto;user-select:none;}
+  .hero-mq-tog input{width:15px;height:15px;accent-color:#f97316;cursor:pointer;}
+  .hero-mq-tog.vis input{accent-color:#16a34a;}
+  .hero-mq-del{flex:0 0 auto;width:30px;height:30px;border:none;border-radius:8px;background:#fff1f2;
+    color:#e11d48;font-size:18px;line-height:1;cursor:pointer;font-weight:700;}
+  .hero-mq-del:hover{background:#e11d48;color:#fff;}
+  .hero-mq-add{border:1.5px dashed #f6b079;background:#fff7ed;color:#c2410c;border-radius:10px;
+    padding:9px 12px;font-family:Montserrat,sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.03em;
+    text-transform:uppercase;cursor:pointer;width:100%;}
+  .hero-mq-add:hover{background:#ffedd5;}
+  @media (max-width:640px){ .hero-grid,.hero-media{grid-template-columns:1fr;}
+    .hero-mq-row{flex-wrap:wrap;} .hero-mq-text{flex:1 1 100%;} }
 </style></head><body>
 <div class="hero-ed">
   <div class="hero-ed-note">Edita el <b>banner Hero</b> del home. Los cambios se guardan en tu tema de Shopify
@@ -3834,15 +3855,41 @@ _HERO_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
     return media;
   }
   function anyMedia(){ var ins=D.querySelectorAll('.hero-mfile'); for(var i=0;i<ins.length;i++){ if(ins[i].files&&ins[i].files[0]) return true; } return false; }
+  /* Marquee: cada fila = texto + naranjo + visible. Filas vacías se descartan al guardar. */
+  function collectMarquee(){
+    var out=[];
+    D.querySelectorAll('.hero-mq-row').forEach(function(r){
+      var t=r.querySelector('.hero-mq-text'); var txt=((t&&t.value)||'').trim(); if(!txt) return;
+      out.push({id:r.getAttribute('data-mqid')||'', text:txt,
+                highlight:!!(r.querySelector('.hero-mq-orange')||{}).checked,
+                hidden: !((r.querySelector('.hero-mq-vis')||{}).checked)});
+    });
+    return out;
+  }
   function setDirty(){ try{ W.parent._swDirty = (collectStr()!==BASE) || anyMedia(); }catch(e){} }
-  function collectStr(){ try{ return JSON.stringify(collect()); }catch(e){ return ''; } }
+  function collectStr(){ try{ return JSON.stringify({s:collect(), m:collectMarquee()}); }catch(e){ return ''; } }
   var BASE=collectStr();
+  /* Agregar / eliminar textos del marquee. */
+  var mqAdd=D.getElementById('hero-mq-add');
+  if(mqAdd){ mqAdd.addEventListener('click',function(){
+    var list=D.getElementById('hero-mq-list'); if(!list) return;
+    var div=D.createElement('div'); div.className='hero-mq-row'; div.setAttribute('data-mqid','');
+    div.innerHTML='<input class="hero-mq-text" placeholder="Texto de la cinta" value="">'
+      +'<label class="hero-mq-tog"><input type="checkbox" class="hero-mq-orange"><span>Naranjo</span></label>'
+      +'<label class="hero-mq-tog vis"><input type="checkbox" class="hero-mq-vis" checked><span>Visible</span></label>'
+      +'<button type="button" class="hero-mq-del" title="Eliminar">×</button>';
+    list.appendChild(div); var ni=div.querySelector('.hero-mq-text'); if(ni) ni.focus(); setDirty();
+  }); }
+  D.addEventListener('click',function(e){
+    var d=e.target&&e.target.closest?e.target.closest('.hero-mq-del'):null;
+    if(d){ var r=d.closest('.hero-mq-row'); if(r){ r.remove(); setDirty(); } }
+  });
   try{
     var P=W.parent; P._swDirty=false;
     P._swSave=async function(){
       try{
         var fb=P.document.getElementById('sw-float-save'); if(fb) fb.textContent='Subiendo…';
-        var payload={op:'hero', settings:collect(), media: await readMedia()};
+        var payload={op:'hero', settings:collect(), media: await readMedia(), marquee: collectMarquee()};
         fire(JSON.stringify(payload));
       }catch(e){}
     };
@@ -3853,23 +3900,26 @@ _HERO_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
 </script></body></html>"""
 
 
-def _hero_media_card_html(side, s):
-    """Tarjeta de subida de imagen/video para 'desktop' o 'mobile', con vista previa del
-    override actual. Sube a Content > Files vía el guardado (base64 en el payload)."""
-    _img_url = str(s.get(f"{side}_image_url") or "").strip()
+def _hero_media_card_html(side, s, prev=None):
+    """Tarjeta de subida de imagen/video para 'desktop' o 'mobile', con vista previa REAL
+    del media actual (imagen mostrada, video reproducible). `prev` = {'img':url,'vid':url}
+    resuelto en Python. Sube a Content > Files vía el guardado (base64 en el payload)."""
+    prev = prev or {}
+    _img_prev_url = str(prev.get("img") or "").strip()
+    _vid_prev_url = str(prev.get("vid") or "").strip()
     _vid_file = str(s.get(f"{side}_video_file") or "").strip()
-    _pick = str(s.get("background_image") or s.get("background_video") or "") if side == "desktop" \
-        else str(s.get("mobile_background_image") or s.get("mobile_background_video") or "")
-    # Preview imagen
-    if _img_url:
-        _img_prev = f'<img src="{_he(_img_url)}" alt="">'
-    elif _pick:
-        _img_prev = '<div class="hero-mnote">Usa el selector nativo de Shopify<br>(sube una imagen aquí para reemplazarlo)</div>'
+    # Preview imagen (override o selector nativo, ya resuelto a URL)
+    if _img_prev_url:
+        _img_prev = f'<img src="{_he(_img_prev_url)}" alt="">'
     else:
-        _img_prev = '<div class="hero-mnote">Sin imagen</div>'
-    # Preview video
-    if _vid_file:
-        _vid_prev = f'<div class="hero-mnote">Video actual:<br><b>{_he(_vid_file)}</b></div>'
+        _img_prev = '<div class="hero-mnote">Sin imagen<br>(sube una para usarla de fondo)</div>'
+    # Preview video — reproducible
+    if _vid_prev_url:
+        _img_cap = f'<br><span style="font-size:.68rem;color:#94a3b8;">{_he(_vid_file)}</span>' if _vid_file else ""
+        _vid_prev = (f'<video src="{_he(_vid_prev_url)}" controls muted playsinline preload="metadata"></video>'
+                     + _img_cap)
+    elif _vid_file:
+        _vid_prev = f'<div class="hero-mnote">Video actual:<br><b>{_he(_vid_file)}</b><br>(procesándose…)</div>'
     else:
         _vid_prev = '<div class="hero-mnote">Sin video propio<br>(sube un .mp4 para usarlo de fondo)</div>'
     _lado = "escritorio" if side == "desktop" else "mobile"
@@ -3892,9 +3942,39 @@ def _hero_media_card_html(side, s):
         '</div>')
 
 
-def _build_hero_form(info):
-    """Arma el formulario HTML del editor del banner hero desde los settings actuales."""
+def _hero_mq_row_html(mqid, text, highlight, hidden):
+    """Una fila editable del marquee: texto + naranjo + visible + eliminar."""
+    _oc = " checked" if highlight else ""
+    _vc = "" if hidden else " checked"
+    return (
+        f'<div class="hero-mq-row" data-mqid="{_he(mqid)}">'
+        f'<input class="hero-mq-text" placeholder="Texto de la cinta" value="{_he(text)}">'
+        f'<label class="hero-mq-tog"><input type="checkbox" class="hero-mq-orange"{_oc}><span>Naranjo</span></label>'
+        f'<label class="hero-mq-tog vis"><input type="checkbox" class="hero-mq-vis"{_vc}><span>Visible</span></label>'
+        '<button type="button" class="hero-mq-del" title="Eliminar">&times;</button>'
+        '</div>')
+
+
+def _hero_marquee_html(ticker):
+    """Editor de los textos de la cinta (bloques ticker_item): filas + botón agregar."""
+    _rows = "".join(_hero_mq_row_html(t.get("id", ""), t.get("text", ""),
+                                      t.get("highlight", False), t.get("hidden", False))
+                    for t in (ticker or []))
+    return (
+        '<div class="hero-mq">'
+        '<label class="hero-lbl">Textos de la cinta (marquee)</label>'
+        f'<div class="hero-mq-list" id="hero-mq-list">{_rows}</div>'
+        '<button type="button" class="hero-mq-add" id="hero-mq-add">+ Agregar texto</button>'
+        '</div>')
+
+
+def _build_hero_form(info, media_prev=None, ticker=None):
+    """Arma el formulario HTML del editor del banner hero desde los settings actuales.
+    `media_prev` = {'desktop':{'img','vid'}, 'mobile':{...}} con URLs resueltas; `ticker` =
+    lista de {id,text,highlight,hidden} de los bloques del marquee."""
     import re as _re2
+    media_prev = media_prev or {}
+    ticker = ticker or []
     s = info.get("settings") or {}
 
     def _v(k, d=""):
@@ -3965,20 +4045,21 @@ def _build_hero_form(info):
                     f'<span class="hero-sw"></span><span class="hero-togtxt">{_he(lbl)}</span></label></div>')
         return ""
 
-    _cards, _h = 160, 160
-    _cards = ""
+    _cards, _h = "", 160
     for _gt, _fs in _HERO_GROUPS:
         _rows = "".join(_field(k, t, lbl, x) for (k, t, lbl, x) in _fs)
-        _media = ""
+        _extra = ""
         if _gt == "Fondo — escritorio":
-            _media = _hero_media_card_html("desktop", s)
-            _h += 230
+            _extra = _hero_media_card_html("desktop", s, media_prev.get("desktop"))
+            _h += 260
         elif _gt == "Fondo — mobile":
-            _media = _hero_media_card_html("mobile", s)
-            _h += 230
+            _extra = _hero_media_card_html("mobile", s, media_prev.get("mobile"))
+            _h += 260
+        elif _gt == "Cinta / marquee":
+            _extra = _hero_marquee_html(ticker)
+            _h += 90 + len(ticker) * 50
         _cards += (f'<div class="hero-card"><div class="hero-gt">{_he(_gt)}</div>'
-                   f'<div class="hero-grid">{_rows}</div>{_media}</div>')
-        # altura aproximada
+                   f'<div class="hero-grid">{_rows}</div>{_extra}</div>')
         _nf = len(_fs)
         _h += 70 + ((_nf + 1) // 2) * 86
     _h += 120
@@ -4058,12 +4139,60 @@ def _guardar_hero(info, data):
     if _media.get("mobile_vid"):
         _up_vid("mobile", _media["mobile_vid"])
 
+    # 3) Marquee: reescribir los bloques ticker_item (texto / naranjo / oculto). Si el
+    #    payload trae la lista, se sincronizan (agrega/edita/elimina); si no, no se tocan.
+    _marquee = data.get("marquee")
+    _bloques_tipo = None
+    _bloques_items = None
+    if isinstance(_marquee, list):
+        _bloques_tipo = "ticker_item"
+        _bloques_items = [
+            {"id": (m.get("id") or ""),
+             "settings": {"text": str(m.get("text") or "").strip(),
+                          "highlight": bool(m.get("highlight")),
+                          "hidden": bool(m.get("hidden"))}}
+            for m in _marquee if str(m.get("text") or "").strip()]
+
     _ok, _e, _bk = _shop.guardar_seccion_settings(
         info.get("theme_id"), info.get("asset_key"), info.get("section_id"),
-        _patch, backup_prefix="hero")
+        _patch, backup_prefix="hero", bloques_tipo=_bloques_tipo, bloques_items=_bloques_items)
     if not _ok:
         _errs.append(_e)
     return _errs
+
+
+def _resolver_hero_prev(s):
+    """Resuelve a URL mostrable/reproducible el media ACTUAL del hero (override o selector
+    nativo), para desktop y mobile. DEFENSIVO: un fallo devuelve '' y no frena el render."""
+    s = s or {}
+
+    def _rv(v, isvid):
+        try:
+            return _shop.resolver_media_preview(v, isvid) if str(v or "").strip() else ""
+        except Exception:
+            return ""
+
+    def _one(side, nat_v, nat_i):
+        _vid = _rv(str(s.get(f"{side}_video_file") or "").strip() or str(s.get(nat_v) or "").strip(), True)
+        _img = str(s.get(f"{side}_image_url") or "").strip() or _rv(str(s.get(nat_i) or "").strip(), False)
+        return {"vid": _vid, "img": _img}
+
+    return {"desktop": _one("desktop", "background_video", "background_image"),
+            "mobile": _one("mobile", "mobile_background_video", "mobile_background_image")}
+
+
+def _hero_ticker_items(info):
+    """Lista ordenada de los bloques ticker_item (marquee) de la sección: {id,text,highlight,hidden}."""
+    _blocks = info.get("blocks") or {}
+    _order = info.get("block_order") or list(_blocks.keys())
+    _out = []
+    for _bid in _order:
+        _b = _blocks.get(_bid)
+        if isinstance(_b, dict) and _b.get("type") == "ticker_item":
+            _st = _b.get("settings") or {}
+            _out.append({"id": _bid, "text": str(_st.get("text") or ""),
+                         "highlight": bool(_st.get("highlight")), "hidden": bool(_st.get("hidden"))})
+    return _out
 
 
 def _render_hero():
@@ -4079,6 +4208,7 @@ def _render_hero():
                      use_container_width=True):
             st.session_state.pop("sw_hero", None)
             st.session_state.pop("sw_hero_err", None)
+            st.session_state.pop("sw_hero_prev", None)
             st.rerun()
 
     if st.session_state.pop("sw_hero_saved", False):
@@ -4095,6 +4225,9 @@ def _render_hero():
             _info, _herr = _shop.leer_seccion("hero-cotiza")
         st.session_state["sw_hero"] = _info or {}
         st.session_state["sw_hero_err"] = _herr
+        # Resolver (una vez) el video/imagen ACTUAL a URL mostrable/reproducible.
+        with st.spinner("Resolviendo el video/imagen actual…"):
+            st.session_state["sw_hero_prev"] = _resolver_hero_prev((_info or {}).get("settings") or {}) if _info else {}
     if not _info:
         st.warning(st.session_state.get("sw_hero_err")
                    or "No se encontró la sección «Hero + Cotización» (hero-cotiza) en el tema.")
@@ -4128,6 +4261,8 @@ def _render_hero():
                     st.session_state["sw_hero_saved"] = True
                 st.rerun()
 
-    _form_html, _form_h = _build_hero_form(_info)
+    _media_prev = st.session_state.get("sw_hero_prev") or {}
+    _ticker = _hero_ticker_items(_info)
+    _form_html, _form_h = _build_hero_form(_info, _media_prev, _ticker)
     components.html(_form_html, height=int(_form_h), scrolling=False)
     components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)   # botón flotante "Guardar y publicar"

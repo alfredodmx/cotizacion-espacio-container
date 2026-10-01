@@ -1486,7 +1486,9 @@ def _seccion_por_tipo_en_tema(tema, tipo):
             if isinstance(_sec, dict) and _sec.get("type") == tipo:
                 return ({"theme_id": _tid, "theme_name": tema.get("name") or "",
                          "theme_role": str(tema.get("role") or ""), "asset_key": _key,
-                         "section_id": _sid, "settings": dict(_sec.get("settings") or {})}, None)
+                         "section_id": _sid, "settings": dict(_sec.get("settings") or {}),
+                         "blocks": dict(_sec.get("blocks") or {}),
+                         "block_order": list(_sec.get("block_order") or [])}, None)
     return None, None
 
 
@@ -1513,12 +1515,16 @@ def leer_seccion(tipo):
 
 
 def guardar_seccion_settings(theme_id, asset_key, section_id, settings_patch, backup=True,
-                             backup_prefix="seccion") -> tuple:
+                             backup_prefix="seccion", bloques_tipo=None, bloques_items=None) -> tuple:
     """Mezcla `settings_patch` en los settings de la sección indicada del tema (read-modify-
     write con respaldo). SOLO toca las claves del patch; deja el resto igual. Devuelve
     (ok, error, backup_key|None). CUIDADO: escribe la config del tema; antes guarda un
-    respaldo del asset original en assets/<prefix>_backup_<ts>.json. DEFENSIVO."""
-    import json as _json, time, re as _re
+    respaldo del asset original en assets/<prefix>_backup_<ts>.json. DEFENSIVO.
+
+    Si `bloques_tipo` y `bloques_items` vienen dados, ADEMÁS reescribe los bloques de ESE
+    tipo en la sección (crea los que no traen id, elimina los que faltan, conserva el orden
+    de la lista) y DEJA INTACTOS los bloques de otros tipos. Cada item: {id?, settings:{}}."""
+    import json as _json, time, re as _re, uuid as _uuid
     if not configurado():
         return False, "Sin credenciales de Shopify.", None
     _val, _e = leer_asset(theme_id, asset_key)
@@ -1549,6 +1555,28 @@ def guardar_seccion_settings(theme_id, asset_key, section_id, settings_patch, ba
     for _k, _v in (settings_patch or {}).items():
         _st[_k] = _v
     _sec["settings"] = _st
+    # Reescritura opcional de bloques de un tipo (p.ej. 'ticker_item' del marquee).
+    if bloques_tipo is not None and bloques_items is not None:
+        _blocks = _sec.get("blocks") or {}
+        _border = _sec.get("block_order") or list(_blocks.keys())
+        # Bloques de OTROS tipos (stats, etc.): se conservan tal cual, en su orden.
+        _otros = [bid for bid in _border if isinstance(_blocks.get(bid), dict)
+                  and _blocks[bid].get("type") != bloques_tipo]
+        _new_blocks = {bid: _blocks[bid] for bid in _otros}
+        _new_ids = []
+        for _it in (bloques_items or []):
+            _bid = _it.get("id")
+            if _bid and _bid in _blocks and (_blocks.get(_bid) or {}).get("type") == bloques_tipo:
+                _bst = dict((_blocks[_bid] or {}).get("settings") or {})   # conserva campos extra
+            else:
+                _bid = f"{bloques_tipo}_" + _uuid.uuid4().hex[:12]
+                _bst = {}
+            for _bk, _bv in (_it.get("settings") or {}).items():
+                _bst[_bk] = _bv
+            _new_blocks[_bid] = {"type": bloques_tipo, "settings": _bst}
+            _new_ids.append(_bid)
+        _sec["blocks"] = _new_blocks
+        _sec["block_order"] = _otros + _new_ids
     _bkey = None
     if backup:
         _cand = f"assets/{backup_prefix}_backup_{time.strftime('%Y%m%d_%H%M%S')}.json"
@@ -1561,6 +1589,52 @@ def guardar_seccion_settings(theme_id, asset_key, section_id, settings_patch, ba
     if not _ok:
         return False, _we, _bkey
     return True, None, _bkey
+
+
+def url_archivo_por_nombre(filename):
+    """URL (CDN) de un archivo de Content > Files buscándolo por nombre. Sirve tanto para
+    imágenes (image_picker guarda 'shopify://shop_images/<fn>') como para videos. Devuelve
+    la URL de imagen o el .mp4 reproducible, o '' si no se encontró. DEFENSIVO."""
+    _fn = str(filename or "").strip()
+    if not _fn:
+        return ""
+    q = ("query($q:String){ files(first:5, query:$q){ nodes{ __typename "
+         "... on MediaImage{ image{ url } preview{ image{ url } } } "
+         "... on GenericFile{ url preview{ image{ url } } } "
+         "... on Video{ preview{ image{ url } } sources{ url mimeType height format } } } } }")
+    data, err = _graphql(q, {"q": f"filename:{_fn}"})
+    if err:
+        return ""
+    for n in ((((data or {}).get("files") or {}).get("nodes")) or []):
+        if not n:
+            continue
+        _u = (((n.get("image") or {}).get("url"))
+              or (((n.get("preview") or {}).get("image") or {}).get("url"))
+              or n.get("url") or _src_de_video_node(n))
+        if _u:
+            return _u
+    return ""
+
+
+def resolver_media_preview(valor, es_video: bool) -> str:
+    """Dada una referencia de media de un setting del tema, devuelve una URL MOSTRABLE
+    (imagen) o REPRODUCIBLE (.mp4 de video), o '' si no se pudo. Soporta: URL http(s)
+    directa, 'shopify://shop_images/<fn>' (image_picker), 'shopify://files/videos/<fn>' o
+    nombre de video, gid://shopify/Video|MediaImage/... y id numérico. DEFENSIVO."""
+    _s = str(valor or "").strip()
+    if not _s:
+        return ""
+    if _s.startswith("http://") or _s.startswith("https://"):
+        return _s
+    if es_video:
+        _cand = _s if ("://" in _s or _s.isdigit()) else f"shopify://files/videos/{_s}"
+        _m, _e = resolver_videos([_cand])
+        _inf = (_m or {}).get(_cand) or {}
+        return _inf.get("src") or _inf.get("preview_url") or ""
+    if _s.startswith("gid://"):
+        _m, _e = resolver_imagenes([_s])
+        return (_m or {}).get(_s) or ""
+    return url_archivo_por_nombre(_s.rsplit("/", 1)[-1])
 
 
 def duplicar_producto(pid, new_title, include_images: bool = True, new_status: str = "DRAFT") -> tuple:
