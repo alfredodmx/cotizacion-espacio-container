@@ -1450,6 +1450,119 @@ def guardar_reels(theme_id, asset_key, section_id, reels, backup=True, prod_hand
     return True, None, _bkey
 
 
+# ── Secciones del tema (settings) — para editar p.ej. el Hero desde el sistema ──
+
+def _seccion_por_tipo_en_tema(tema, tipo):
+    """Busca la 1ª sección de `tipo` (p.ej. 'hero-cotiza') dentro de UN tema, escaneando los
+    JSON (settings_data + templates + section groups). Devuelve (info|None, error).
+    info = {theme_id, theme_name, theme_role, asset_key, section_id, settings}. 'No
+    encontrado' => (None, None) para seguir probando otros temas. DEFENSIVO."""
+    import json as _json
+    if not isinstance(tema, dict):
+        return None, None
+    _tid = tema.get("id")
+    _keys, err2 = listar_assets_json(_tid)
+    if err2:
+        return None, err2
+    _sd = [k for k in _keys if k == "config/settings_data.json"]
+    _idx = [k for k in _keys if k == "templates/index.json"]
+    _idx2 = [k for k in _keys if k.startswith("templates/") and k.endswith(".json") and k not in _idx]
+    _grp = [k for k in _keys if k.startswith("sections/") and k.endswith(".json")]
+    for _key in _sd + _idx + _idx2 + _grp:
+        _val, _e = leer_asset(_tid, _key)
+        if _e or not _val:
+            continue
+        try:
+            _obj = _json.loads(_val)
+        except Exception:
+            continue
+        _cont = _obj
+        if _key == "config/settings_data.json":
+            _cont = _obj.get("current") if isinstance(_obj.get("current"), dict) else {}
+        _secs = _cont.get("sections") if isinstance(_cont, dict) else None
+        if not isinstance(_secs, dict):
+            continue
+        for _sid, _sec in _secs.items():
+            if isinstance(_sec, dict) and _sec.get("type") == tipo:
+                return ({"theme_id": _tid, "theme_name": tema.get("name") or "",
+                         "theme_role": str(tema.get("role") or ""), "asset_key": _key,
+                         "section_id": _sid, "settings": dict(_sec.get("settings") or {})}, None)
+    return None, None
+
+
+def leer_seccion(tipo):
+    """Encuentra la 1ª sección de `tipo` en el tema PUBLICADO (role='main'); si no está, en
+    un BORRADOR. Devuelve (info|None, error). info incluye theme_role ('main' = producción).
+    Igual que leer_reels pero genérico por tipo de sección."""
+    _temas, err = listar_temas()
+    if err:
+        return None, err
+    if not _temas:
+        return None, "No hay temas en la tienda."
+    _main = next((t for t in _temas if str(t.get("role")) == "main"), None)
+    _borr = [t for t in _temas if t is not _main and str(t.get("role")) not in ("demo", "archived")]
+    _primer_err = None
+    for _t in ([_main] if _main else []) + _borr:
+        _info, _e = _seccion_por_tipo_en_tema(_t, tipo)
+        if _e:
+            _primer_err = _primer_err or _e
+            continue
+        if _info:
+            return _info, None
+    return None, (_primer_err or f"No se encontró una sección '{tipo}' en ningún tema.")
+
+
+def guardar_seccion_settings(theme_id, asset_key, section_id, settings_patch, backup=True,
+                             backup_prefix="seccion") -> tuple:
+    """Mezcla `settings_patch` en los settings de la sección indicada del tema (read-modify-
+    write con respaldo). SOLO toca las claves del patch; deja el resto igual. Devuelve
+    (ok, error, backup_key|None). CUIDADO: escribe la config del tema; antes guarda un
+    respaldo del asset original en assets/<prefix>_backup_<ts>.json. DEFENSIVO."""
+    import json as _json, time, re as _re
+    if not configurado():
+        return False, "Sin credenciales de Shopify.", None
+    _val, _e = leer_asset(theme_id, asset_key)
+    if _e:
+        return False, _e, None
+    if not _val:
+        return False, "No se pudo leer el asset del tema (¿cambió?).", None
+    _raw = _val
+    try:
+        _obj = _json.loads(_val)
+    except Exception:
+        try:
+            _clean = _re.sub(r"^\s*/\*.*?\*/\s*", "", _val, flags=_re.S)
+            _obj = _json.loads(_clean)
+            _raw = _clean
+        except Exception as ex:
+            return False, f"No se pudo interpretar el JSON del tema: {ex}", None
+    _cont = _obj
+    if asset_key == "config/settings_data.json":
+        _cont = _obj.get("current") if isinstance(_obj.get("current"), dict) else None
+        if _cont is None:
+            return False, "Estructura inesperada de settings_data.json.", None
+    _secs = _cont.get("sections") if isinstance(_cont, dict) else None
+    if not isinstance(_secs, dict) or section_id not in _secs:
+        return False, "No se encontró la sección (¿cambió el tema?).", None
+    _sec = _secs[section_id]
+    _st = dict(_sec.get("settings") or {})
+    for _k, _v in (settings_patch or {}).items():
+        _st[_k] = _v
+    _sec["settings"] = _st
+    _bkey = None
+    if backup:
+        _cand = f"assets/{backup_prefix}_backup_{time.strftime('%Y%m%d_%H%M%S')}.json"
+        try:
+            _bok, _ = escribir_asset(theme_id, _cand, _raw)
+            _bkey = _cand if _bok else None
+        except Exception:
+            _bkey = None
+    _ok, _we = escribir_asset(theme_id, asset_key, _json.dumps(_obj, ensure_ascii=False))
+    if not _ok:
+        return False, _we, _bkey
+    return True, None, _bkey
+
+
 def duplicar_producto(pid, new_title, include_images: bool = True, new_status: str = "DRAFT") -> tuple:
     """Duplica un producto (copia título/desc/variantes/opciones/tags/tipo + fotos si
     `include_images`) como BORRADOR por defecto. Devuelve (nuevo_id_numérico|None, error).

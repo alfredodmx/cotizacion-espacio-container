@@ -1986,15 +1986,22 @@ def render_tab_sitio_web(**kwargs):
 
     # ── Selector de vista: Modelos (por defecto) / Tabla / Reels HOME ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
-    _vistas = ["Modelos", "Tabla", "Comparar", "Reels HOME"]
+    _vistas = ["Modelos", "Tabla", "Comparar", "Banner Hero", "Reels HOME"]
     _vicons = {"Modelos": ":material/grid_view:", "Tabla": ":material/table_rows:",
-               "Comparar": ":material/compare_arrows:", "Reels HOME": ":material/movie:"}
+               "Comparar": ":material/compare_arrows:", "Banner Hero": ":material/wallpaper:",
+               "Reels HOME": ":material/movie:"}
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
 
     # Modo "Reels HOME": ver/editar los videos reels de la sección de Shopify (bloques del tema).
     if _vista == "Reels HOME":
         _render_reels()
+        return
+
+    # Modo "Banner Hero": editar la sección hero-cotiza del home (video/imagen de fondo,
+    # título/subtítulo, overlay, formulario) escribiendo los settings del tema.
+    if _vista == "Banner Hero":
+        _render_hero()
         return
 
     # Modo "Comparar": editar los metacampos de la sección "Comparar modelos" (compare-models.liquid)
@@ -3621,5 +3628,506 @@ def _render_comparar():
 
     _title = _msel.split(" · ")[0] if _msel else ""
     _form_html, _form_h = _build_comparar_form(_pid, _title, _cur)
+    components.html(_form_html, height=int(_form_h), scrolling=False)
+    components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)   # botón flotante "Guardar y publicar"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  VISTA "BANNER HERO": edita la sección hero-cotiza del home (settings del tema).
+#  Escribe los MISMOS settings que usa el editor de Shopify → sincronización total.
+#  El video/imagen de fondo (desktop/mobile) se sube a Content > Files y se guarda en
+#  los campos override (desktop_image_url / desktop_video_file / mobile_*). NO toca el
+#  formulario {% form 'customer' %} (que está conectado y en vivo al CRM).
+# ══════════════════════════════════════════════════════════════════════════════
+_HERO_SEL_MEDIA = [("image", "Imagen"), ("video", "Video")]
+_HERO_SEL_DIR = [("to right", "Izq → der"), ("to left", "Der → izq"),
+                 ("to bottom", "Arriba → abajo"), ("to top", "Abajo → arriba"),
+                 ("to bottom right", "Diagonal ↘"), ("to bottom left", "Diagonal ↙")]
+
+# (título de grupo, [(key, tipo, etiqueta, extra), ...])
+#   tipo: text | textarea | richtext | color | range | select | checkbox
+#   extra: para range = (min,max,step,unit); para select = [(valor,etiqueta),...]
+_HERO_GROUPS = [
+    ("Título", [
+        ("eyebrow", "text", "Badge / eyebrow", None),
+        ("heading_line_1", "text", "Título — línea 1", None),
+        ("heading_line_2", "text", "Título — línea 2", None),
+        ("heading_highlight", "text", "Título — destacado (color acento)", None),
+        ("heading_color", "color", "Color del título", None),
+        ("heading_font_size_desktop", "range", "Tamaño título — desktop", (40, 120, 1, "px")),
+        ("heading_font_size_mobile", "range", "Tamaño título — mobile", (24, 60, 1, "px")),
+    ]),
+    ("Subtítulo", [
+        ("subheading", "richtext", "Subtítulo", None),
+        ("subheading_color", "color", "Color del subtítulo", None),
+        ("subheading_font_size_desktop", "range", "Tamaño subtítulo — desktop", (12, 32, 1, "px")),
+        ("subheading_font_size_mobile", "range", "Tamaño subtítulo — mobile", (12, 28, 1, "px")),
+    ]),
+    ("Fondo — escritorio", [
+        ("desktop_media_type", "select", "Tipo de fondo", _HERO_SEL_MEDIA),
+        ("hero_height", "range", "Altura del hero", (60, 100, 5, "vh")),
+    ]),
+    ("Fondo — mobile", [
+        ("enable_mobile_media", "checkbox", "Usar imagen/video distinto en mobile", None),
+        ("mobile_media_type", "select", "Tipo de fondo (mobile)", _HERO_SEL_MEDIA),
+    ]),
+    ("Gradiente (overlay)", [
+        ("overlay_color", "color", "Color del gradiente", None),
+        ("overlay_uniform", "checkbox", "Overlay uniforme (capa plana, sin degradado)", None),
+        ("overlay_direction", "select", "Dirección del degradado", _HERO_SEL_DIR),
+        ("overlay_opacity_start", "range", "Opacidad — inicio / uniforme", (0, 100, 5, "%")),
+        ("overlay_opacity_mid", "range", "Opacidad — medio", (0, 100, 5, "%")),
+        ("overlay_opacity_end", "range", "Opacidad — final", (0, 100, 5, "%")),
+    ]),
+    ("Formulario", [
+        ("show_form", "checkbox", "Mostrar la tarjeta de formulario", None),
+        ("form_heading", "text", "Título del formulario", None),
+        ("form_subheading", "text", "Subtítulo del formulario", None),
+        ("form_select_label", "text", "Etiqueta — «¿Qué necesitas?»", None),
+        ("form_options", "textarea", "Opciones de «¿Qué necesitas?» (una por línea)", None),
+        ("form_name_label", "text", "Etiqueta — Nombre", None),
+        ("form_email_label", "text", "Etiqueta — Email", None),
+        ("form_phone_label", "text", "Etiqueta — WhatsApp", None),
+        ("form_submit_label", "text", "Texto del botón de envío", None),
+        ("form_success_message", "text", "Mensaje de éxito", None),
+        ("form_disclaimer", "text", "Disclaimer / texto legal", None),
+    ]),
+    ("Formulario — color y opacidad", [
+        ("form_card_color", "color", "Color — tarjeta", None),
+        ("form_card_opacity", "range", "Opacidad — tarjeta", (0, 100, 5, "%")),
+        ("form_input_color", "color", "Color — campos", None),
+        ("form_input_opacity", "range", "Opacidad — campos", (0, 100, 5, "%")),
+        ("form_button_color", "color", "Color — botón de envío", None),
+        ("form_button_opacity", "range", "Opacidad — botón", (0, 100, 5, "%")),
+    ]),
+    ("Colores generales", [
+        ("primary_color", "color", "Color primario (fondo oscuro)", None),
+        ("brand_color", "color", "Color de acento (marca)", None),
+        ("brand_foreground_color", "color", "Texto sobre el acento", None),
+        ("text_color", "color", "Texto principal", None),
+    ]),
+    ("Cinta / marquee", [
+        ("show_marquee", "checkbox", "Mostrar la cinta de texto en movimiento", None),
+        ("marquee_speed", "range", "Velocidad (segundos por ciclo)", (10, 60, 2, "s")),
+    ]),
+]
+
+# {key: tipo} — SOLO estas claves se escriben al tema (whitelist de seguridad).
+_HERO_TYPES = {k: t for _g, _fs in _HERO_GROUPS for (k, t, _l, _x) in _fs}
+
+
+_HERO_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;background:transparent;font-family:Inter,'Segoe UI',system-ui,sans-serif;}
+  .hero-ed{color:#0f172a;padding:2px 2px 100px;}
+  .hero-ed-note{font-size:.74rem;color:#64748b;line-height:1.5;margin:0 0 16px;background:#f8fafc;
+    border:1px solid #eef2f7;border-left:3px solid #f97316;border-radius:9px;padding:9px 12px;}
+  .hero-card{background:#fff;border:1px solid #e8ebf3;border-radius:14px;padding:16px 18px 18px;
+    margin-bottom:15px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+  .hero-gt{font-family:Montserrat,sans-serif;font-weight:800;font-size:.76rem;letter-spacing:.06em;
+    text-transform:uppercase;color:#0f172a;display:flex;align-items:center;gap:9px;margin:0 0 14px;}
+  .hero-gt::before{content:'';width:4px;height:15px;border-radius:3px;background:linear-gradient(180deg,#f97316,#ea580c);}
+  .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 18px;}
+  .hero-f{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .hero-f.full{grid-column:1 / -1;}
+  .hero-lbl{font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.03em;}
+  .hero-in,.hero-ta,.hero-sel{border:1.4px solid #e2e8f0;border-radius:9px;padding:9px 11px;font-family:inherit;
+    font-size:.86rem;color:#0f172a;background:#fff;outline:none;width:100%;transition:border-color .15s,box-shadow .15s;}
+  .hero-in:focus,.hero-ta:focus,.hero-sel:focus{border-color:#f97316;box-shadow:0 0 0 3px rgba(249,115,22,.13);}
+  .hero-ta{resize:vertical;min-height:90px;line-height:1.5;}
+  .hero-colorrow{display:flex;align-items:center;gap:10px;}
+  .hero-color{width:46px;height:34px;padding:0;border:1.4px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;flex:0 0 auto;}
+  .hero-colorhex{font-size:.8rem;font-weight:700;color:#334155;font-family:ui-monospace,monospace;text-transform:uppercase;}
+  .hero-rangerow{display:flex;align-items:center;gap:12px;}
+  .hero-range{flex:1;accent-color:#f97316;}
+  .hero-rv{font-size:.82rem;font-weight:800;color:#0f172a;min-width:54px;text-align:right;}
+  .hero-tog{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+  .hero-tog input{position:absolute;opacity:0;width:0;height:0;}
+  .hero-tog .hero-sw{width:42px;height:24px;border-radius:999px;background:#cbd5e1;position:relative;transition:background .18s;flex:0 0 auto;}
+  .hero-tog .hero-sw::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+  .hero-tog input:checked + .hero-sw{background:#16a34a;}
+  .hero-tog input:checked + .hero-sw::after{transform:translateX(18px);}
+  .hero-tog .hero-togtxt{font-size:.82rem;font-weight:600;color:#334155;}
+  /* media */
+  .hero-media{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .hero-mcol{display:flex;flex-direction:column;gap:8px;}
+  .hero-mprev{border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;min-height:94px;display:flex;
+    align-items:center;justify-content:center;overflow:hidden;text-align:center;padding:8px;}
+  .hero-mprev img{max-width:100%;max-height:120px;border-radius:6px;display:block;}
+  .hero-mprev .hero-mnote{font-size:.72rem;color:#94a3b8;font-weight:600;line-height:1.4;}
+  .hero-mpick{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1.4px solid #e2e8f0;
+    background:#fff;border-radius:9px;padding:9px 12px;font-family:Montserrat,sans-serif;font-weight:700;
+    font-size:.72rem;letter-spacing:.03em;text-transform:uppercase;color:#334155;cursor:pointer;}
+  .hero-mpick:hover{border-color:#f97316;color:#ea580c;}
+  .hero-mfile{display:none;}
+  .hero-mchosen{font-size:.72rem;color:#16a34a;font-weight:700;min-height:14px;}
+  @media (max-width:640px){ .hero-grid,.hero-media{grid-template-columns:1fr;} }
+</style></head><body>
+<div class="hero-ed">
+  <div class="hero-ed-note">Edita el <b>banner Hero</b> del home. Los cambios se guardan en tu tema de Shopify
+  (video/imagen de fondo, título, subtítulo, overlay, colores y las opciones del formulario). El formulario de
+  cotización sigue conectado al CRM — aquí solo cambias sus textos y opciones, no su funcionamiento.</div>
+  __CARDS__
+</div>
+<script>
+(function(){
+  var D=document, W=window;
+  function fire(payload){
+    try{
+      var P=W.parent, PD=P.document;
+      var inp=PD.querySelector('.st-key-sw_savecmd input'); if(!inp) return;
+      var setter=Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype,'value').set;
+      inp.focus({preventScroll:true});
+      setter.call(inp, payload+'|'+Date.now());
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));
+      inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));
+      inp.blur();
+    }catch(e){}
+  }
+  /* Live: sliders y swatches muestran su valor. */
+  D.querySelectorAll('.hero-range').forEach(function(r){
+    var out=r.parentNode.querySelector('.hero-rv');
+    function upd(){ if(out) out.textContent=r.value+(r.getAttribute('data-unit')||''); }
+    r.addEventListener('input',upd); upd();
+  });
+  D.querySelectorAll('.hero-color').forEach(function(c){
+    var out=c.parentNode.querySelector('.hero-colorhex');
+    function upd(){ if(out) out.textContent=c.value; }
+    c.addEventListener('input',upd); upd();
+  });
+  /* Media: botón → file input; muestra el nombre elegido. */
+  D.querySelectorAll('.hero-mpick').forEach(function(b){
+    b.addEventListener('click',function(){ var f=D.getElementById(b.getAttribute('data-for')); if(f) f.click(); });
+  });
+  D.querySelectorAll('.hero-mfile').forEach(function(f){
+    f.addEventListener('change',function(){
+      var ch=f.parentNode.querySelector('.hero-mchosen');
+      if(ch) ch.textContent = (f.files&&f.files[0]) ? ('✓ '+f.files[0].name) : '';
+      setDirty();
+    });
+  });
+  function collect(){
+    var out={};
+    D.querySelectorAll('[data-skey]').forEach(function(el){
+      var k=el.getAttribute('data-skey'), t=el.getAttribute('data-stype');
+      if(t==='checkbox') out[k]=el.checked;
+      else if(t==='range') out[k]=parseInt(el.value||'0',10);
+      else out[k]=el.value;
+    });
+    return out;
+  }
+  function fileB64(file){ return new Promise(function(res){ try{ var r=new FileReader();
+    r.onload=function(){ var s=String(r.result||''); var i=s.indexOf(','); res(i>=0?s.slice(i+1):''); };
+    r.onerror=function(){res('');}; r.readAsDataURL(file); }catch(e){res('');} }); }
+  async function readMedia(){
+    var media={}, ins=D.querySelectorAll('.hero-mfile');
+    for(var i=0;i<ins.length;i++){ var el=ins[i], f=el.files&&el.files[0]; if(!f) continue;
+      var b64=await fileB64(f);
+      if(b64) media[el.getAttribute('data-media')]={name:f.name, mime:(f.type||''), b64:b64};
+    }
+    return media;
+  }
+  function anyMedia(){ var ins=D.querySelectorAll('.hero-mfile'); for(var i=0;i<ins.length;i++){ if(ins[i].files&&ins[i].files[0]) return true; } return false; }
+  function setDirty(){ try{ W.parent._swDirty = (collectStr()!==BASE) || anyMedia(); }catch(e){} }
+  function collectStr(){ try{ return JSON.stringify(collect()); }catch(e){ return ''; } }
+  var BASE=collectStr();
+  try{
+    var P=W.parent; P._swDirty=false;
+    P._swSave=async function(){
+      try{
+        var fb=P.document.getElementById('sw-float-save'); if(fb) fb.textContent='Subiendo…';
+        var payload={op:'hero', settings:collect(), media: await readMedia()};
+        fire(JSON.stringify(payload));
+      }catch(e){}
+    };
+  }catch(e){}
+  D.addEventListener('input',setDirty);
+  D.addEventListener('change',setDirty);
+})();
+</script></body></html>"""
+
+
+def _hero_media_card_html(side, s):
+    """Tarjeta de subida de imagen/video para 'desktop' o 'mobile', con vista previa del
+    override actual. Sube a Content > Files vía el guardado (base64 en el payload)."""
+    _img_url = str(s.get(f"{side}_image_url") or "").strip()
+    _vid_file = str(s.get(f"{side}_video_file") or "").strip()
+    _pick = str(s.get("background_image") or s.get("background_video") or "") if side == "desktop" \
+        else str(s.get("mobile_background_image") or s.get("mobile_background_video") or "")
+    # Preview imagen
+    if _img_url:
+        _img_prev = f'<img src="{_he(_img_url)}" alt="">'
+    elif _pick:
+        _img_prev = '<div class="hero-mnote">Usa el selector nativo de Shopify<br>(sube una imagen aquí para reemplazarlo)</div>'
+    else:
+        _img_prev = '<div class="hero-mnote">Sin imagen</div>'
+    # Preview video
+    if _vid_file:
+        _vid_prev = f'<div class="hero-mnote">Video actual:<br><b>{_he(_vid_file)}</b></div>'
+    else:
+        _vid_prev = '<div class="hero-mnote">Sin video propio<br>(sube un .mp4 para usarlo de fondo)</div>'
+    _lado = "escritorio" if side == "desktop" else "mobile"
+    return (
+        '<div class="hero-media">'
+        '<div class="hero-mcol">'
+        f'<label class="hero-lbl">Imagen de fondo ({_lado})</label>'
+        f'<div class="hero-mprev">{_img_prev}</div>'
+        f'<button type="button" class="hero-mpick" data-for="herofile_{side}_img">Subir imagen</button>'
+        f'<input type="file" class="hero-mfile" id="herofile_{side}_img" data-media="{side}_img" accept="image/png,image/jpeg,image/webp">'
+        '<div class="hero-mchosen"></div>'
+        '</div>'
+        '<div class="hero-mcol">'
+        f'<label class="hero-lbl">Video de fondo ({_lado})</label>'
+        f'<div class="hero-mprev">{_vid_prev}</div>'
+        f'<button type="button" class="hero-mpick" data-for="herofile_{side}_vid">Subir video</button>'
+        f'<input type="file" class="hero-mfile" id="herofile_{side}_vid" data-media="{side}_vid" accept="video/mp4,video/quicktime,video/webm">'
+        '<div class="hero-mchosen"></div>'
+        '</div>'
+        '</div>')
+
+
+def _build_hero_form(info):
+    """Arma el formulario HTML del editor del banner hero desde los settings actuales."""
+    import re as _re2
+    s = info.get("settings") or {}
+
+    def _v(k, d=""):
+        _x = s.get(k, d)
+        return "" if _x is None else str(_x)
+
+    def _color(k, fb):
+        _x = str(s.get(k) or "").strip()
+        return _x if _re2.match(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", _x) else fb
+
+    def _isbool(k, d=False):
+        _x = s.get(k, d)
+        if isinstance(_x, bool):
+            return _x
+        return str(_x).strip().lower() in ("true", "1", "yes", "on")
+
+    _text_col = _color("text_color", "#FFFFFF")
+
+    def _field(k, t, lbl, extra):
+        if t == "text":
+            return ('<div class="hero-f">'
+                    f'<label class="hero-lbl">{_he(lbl)}</label>'
+                    f'<input class="hero-in" data-skey="{k}" data-stype="text" value="{_he(_v(k))}"></div>')
+        if t == "textarea":
+            return ('<div class="hero-f full">'
+                    f'<label class="hero-lbl">{_he(lbl)}</label>'
+                    f'<textarea class="hero-ta" data-skey="{k}" data-stype="textarea">{_he(_v(k))}</textarea></div>')
+        if t == "richtext":
+            _txt = _richtext_to_text(s.get(k))
+            return ('<div class="hero-f full">'
+                    f'<label class="hero-lbl">{_he(lbl)}</label>'
+                    f'<textarea class="hero-ta" data-skey="{k}" data-stype="richtext">{_he(_txt)}</textarea></div>')
+        if t == "color":
+            _fb = _text_col if k in ("heading_color", "subheading_color") else "#182230"
+            _cv = _color(k, _fb)
+            return ('<div class="hero-f">'
+                    f'<label class="hero-lbl">{_he(lbl)}</label>'
+                    '<div class="hero-colorrow">'
+                    f'<input type="color" class="hero-color" data-skey="{k}" data-stype="color" value="{_he(_cv)}">'
+                    '<span class="hero-colorhex"></span></div></div>')
+        if t == "range":
+            _mn, _mx, _stp, _un = extra
+            try:
+                _cur = int(float(s.get(k, _mn)))
+            except Exception:
+                _cur = _mn
+            _cur = max(_mn, min(_mx, _cur))
+            return ('<div class="hero-f">'
+                    f'<label class="hero-lbl">{_he(lbl)}</label>'
+                    '<div class="hero-rangerow">'
+                    f'<input type="range" class="hero-range" data-skey="{k}" data-stype="range" '
+                    f'data-unit="{_he(_un)}" min="{_mn}" max="{_mx}" step="{_stp}" value="{_cur}">'
+                    '<span class="hero-rv"></span></div></div>')
+        if t == "select":
+            _cur = _v(k)
+            _opts = ""
+            for _val, _ol in extra:
+                _sel = " selected" if _val == _cur else ""
+                _opts += f'<option value="{_he(_val)}"{_sel}>{_he(_ol)}</option>'
+            return ('<div class="hero-f">'
+                    f'<label class="hero-lbl">{_he(lbl)}</label>'
+                    f'<select class="hero-sel" data-skey="{k}" data-stype="select">{_opts}</select></div>')
+        if t == "checkbox":
+            _ck = " checked" if _isbool(k) else ""
+            return ('<div class="hero-f full">'
+                    '<label class="hero-tog">'
+                    f'<input type="checkbox" data-skey="{k}" data-stype="checkbox"{_ck}>'
+                    f'<span class="hero-sw"></span><span class="hero-togtxt">{_he(lbl)}</span></label></div>')
+        return ""
+
+    _cards, _h = 160, 160
+    _cards = ""
+    for _gt, _fs in _HERO_GROUPS:
+        _rows = "".join(_field(k, t, lbl, x) for (k, t, lbl, x) in _fs)
+        _media = ""
+        if _gt == "Fondo — escritorio":
+            _media = _hero_media_card_html("desktop", s)
+            _h += 230
+        elif _gt == "Fondo — mobile":
+            _media = _hero_media_card_html("mobile", s)
+            _h += 230
+        _cards += (f'<div class="hero-card"><div class="hero-gt">{_he(_gt)}</div>'
+                   f'<div class="hero-grid">{_rows}</div>{_media}</div>')
+        # altura aproximada
+        _nf = len(_fs)
+        _h += 70 + ((_nf + 1) // 2) * 86
+    _h += 120
+    _html = _HERO_FORM_TEMPLATE.replace("__CARDS__", _cards)
+    return _html, _h
+
+
+def _guardar_hero(info, data):
+    """Sube los medios elegidos (a Content > Files) y guarda los settings del banner hero en
+    el tema. Devuelve lista de errores (vacía = OK)."""
+    _errs = []
+    _settings = data.get("settings") or {}
+    _media = data.get("media") or {}
+    _patch = {}
+    # 1) Settings de texto/color/número/select/checkbox (solo las claves conocidas).
+    for _k, _v in _settings.items():
+        _t = _HERO_TYPES.get(_k)
+        if _t is None:
+            continue
+        if _t == "range":
+            try:
+                _patch[_k] = int(float(_v))
+            except Exception:
+                pass
+        elif _t == "checkbox":
+            _patch[_k] = bool(_v)
+        elif _t == "richtext":
+            _patch[_k] = _text_to_richtext(str(_v or ""))
+        else:
+            _patch[_k] = str(_v if _v is not None else "")
+
+    # 2) Medios: subir a Files y fijar los campos override (+ media_type). El archivo subido
+    #    MANDA sobre el tipo elegido en el select.
+    def _up_img(side, m):
+        try:
+            _b = base64.b64decode(m.get("b64") or "")
+        except Exception:
+            _b = b""
+        if not _b:
+            return
+        _gid, _pv, _e = _shop.subir_imagen_archivo(m.get("name") or "hero.jpg",
+                                                   m.get("mime") or "image/jpeg", _b)
+        if _e or not _pv:
+            _errs.append(_e or "No se pudo subir la imagen.")
+            return
+        _patch[f"{side}_image_url"] = _pv
+        _patch[f"{side}_video_file"] = ""
+        _patch[f"{side}_media_type"] = "image"
+        if side == "mobile":
+            _patch["enable_mobile_media"] = True
+
+    def _up_vid(side, m):
+        try:
+            _b = base64.b64decode(m.get("b64") or "")
+        except Exception:
+            _b = b""
+        if not _b:
+            return
+        _ref, _pv, _src, _e = _shop.subir_video_archivo(m.get("name") or "hero.mp4",
+                                                        m.get("mime") or "video/mp4", _b)
+        if _e or not _ref:
+            _errs.append(_e or "No se pudo subir el video.")
+            return
+        _fn = str(_ref).rsplit("/", 1)[-1]
+        _patch[f"{side}_video_file"] = _fn
+        _patch[f"{side}_image_url"] = ""
+        _patch[f"{side}_media_type"] = "video"
+        if side == "mobile":
+            _patch["enable_mobile_media"] = True
+
+    if _media.get("desktop_img"):
+        _up_img("desktop", _media["desktop_img"])
+    if _media.get("desktop_vid"):
+        _up_vid("desktop", _media["desktop_vid"])
+    if _media.get("mobile_img"):
+        _up_img("mobile", _media["mobile_img"])
+    if _media.get("mobile_vid"):
+        _up_vid("mobile", _media["mobile_vid"])
+
+    _ok, _e, _bk = _shop.guardar_seccion_settings(
+        info.get("theme_id"), info.get("asset_key"), info.get("section_id"),
+        _patch, backup_prefix="hero")
+    if not _ok:
+        _errs.append(_e)
+    return _errs
+
+
+def _render_hero():
+    """Vista Banner Hero: lee la sección hero-cotiza del tema y la edita (form HTML)."""
+    _h1, _h2 = st.columns([5, 1.3], vertical_alignment="bottom")
+    with _h1:
+        st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 17, 0)}Banner Hero (home)'
+                    '<span style="color:#94a3b8;font-weight:800;font-size:.72rem;margin-left:8px;">'
+                    'video/imagen de fondo · título · subtítulo · overlay · formulario</span></div>',
+                    unsafe_allow_html=True)
+    with _h2:
+        if st.button("Actualizar", icon=":material/refresh:", key="sw_hero_refresh",
+                     use_container_width=True):
+            st.session_state.pop("sw_hero", None)
+            st.session_state.pop("sw_hero_err", None)
+            st.rerun()
+
+    if st.session_state.pop("sw_hero_saved", False):
+        st.success("Banner guardado en el tema. Cuando publiques ese tema, pasa a producción.",
+                   icon=":material/check_circle:")
+    _herrs = st.session_state.pop("sw_hero_errs", None)
+    if _herrs:
+        st.warning("No se pudo guardar del todo (revisa):\n\n" + "\n\n".join(f"- {e}" for e in _herrs),
+                   icon=":material/error:")
+
+    _info = st.session_state.get("sw_hero")
+    if _info is None:
+        with st.spinner("Buscando el banner hero en tu tema de Shopify…"):
+            _info, _herr = _shop.leer_seccion("hero-cotiza")
+        st.session_state["sw_hero"] = _info or {}
+        st.session_state["sw_hero_err"] = _herr
+    if not _info:
+        st.warning(st.session_state.get("sw_hero_err")
+                   or "No se encontró la sección «Hero + Cotización» (hero-cotiza) en el tema.")
+        return
+
+    if str(_info.get("theme_role")) != "main":
+        st.info(f"Editando el banner en el tema BORRADOR «{_info.get('theme_name','')}». "
+                "Publica ese tema para que los cambios salgan en producción.", icon=":material/draft:")
+
+    # Puente de guardado (input oculto sw_savecmd; se auto-limpia tras procesar).
+    if st.session_state.pop("_sw_reset_savecmd", False):
+        st.session_state["sw_savecmd"] = ""
+    _sc = st.text_input("savecmd", key="sw_savecmd", label_visibility="collapsed")
+    if _sc and "|" in _sc:
+        _sbody, _sts = _sc.rsplit("|", 1)
+        if _sts != st.session_state.get("sw_savecmd_ts"):
+            st.session_state["sw_savecmd_ts"] = _sts
+            st.session_state["_sw_reset_savecmd"] = True
+            import json as _json
+            try:
+                _data = _json.loads(_sbody)
+            except Exception:
+                _data = None
+            if _data and _data.get("op") == "hero":
+                with st.spinner("Subiendo medios y guardando en Shopify…"):
+                    _errs = _guardar_hero(_info, _data)
+                st.session_state.pop("sw_hero", None)   # recargar settings frescos
+                if _errs:
+                    st.session_state["sw_hero_errs"] = _errs
+                else:
+                    st.session_state["sw_hero_saved"] = True
+                st.rerun()
+
+    _form_html, _form_h = _build_hero_form(_info)
     components.html(_form_html, height=int(_form_h), scrolling=False)
     components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)   # botón flotante "Guardar y publicar"
