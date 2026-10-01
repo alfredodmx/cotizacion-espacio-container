@@ -1212,24 +1212,27 @@ html.ec-tab-loading #_usr_header_bar { visibility: visible !important; opacity: 
   //    ESPERA a la app autenticada → no se ve el login parpadear ni el sistema crudo.
   //  · Primera carga sin sesión: preloader fijo normal (el login es liviano).
   try {{
-    var _hasHeader = !!D.getElementById('_usr_header_bar');
-    var _hasLogin  = !!D.querySelector('[class*="st-key-login_"]');
-    var _restoring = (W.location.search.indexOf('_sess=') !== -1);
-    var _hasTok = false; try {{ _hasTok = !!W.localStorage.getItem('ec_sess'); }} catch(e){{}}
-    if (_hasHeader) {{
-      /* app ya montada → no mostrar el preloader de carga */
-    }} else if (_restoring) {{
-      animateHold(1500);
-    }} else if (_hasTok) {{
-      /* carga fresca CON token guardado (no autenticado aún): la redirección a ?_sess
-         es inminente → tapamos para que no parpadee el login. `_hasLogin` es sólo
-         informativo (el form puede no estar aún en el DOM cuando corre este script). */
-      animateHold(3500);
-    }} else if (W.sessionStorage.getItem('_ec_pre_initial') !== '1') {{
-      W.sessionStorage.setItem('_ec_pre_initial', '1');
-      animate(T_TOTAL);
+    // Decidir el preloader UNA VEZ por DOCUMENTO (window flag, NO sessionStorage): así SÍ
+    // aparece en cada recarga real (no solo en la 1ª del tab) pero NO en los reruns de
+    // Streamlit (que conservan el mismo window). En TODOS los casos esperamos al destino
+    // real (app autenticada o pantalla de login) con animateHold → nunca se ve el
+    // esqueleto gris de Streamlit armándose "crudo".
+    if (!W._ec_pre_booted) {{
+      W._ec_pre_booted = 1;
+      var _hasHeader = !!D.getElementById('_usr_header_bar');
+      var _restoring = (W.location.search.indexOf('_sess=') !== -1);
+      var _hasTok = false; try {{ _hasTok = !!W.localStorage.getItem('ec_sess'); }} catch(e){{}}
+      if (_hasHeader) {{
+        /* ya autenticado en este load → no tapar */
+      }} else if (_restoring) {{
+        animateHold(1500);   // restaurando sesión (?_sess) → espera la app
+      }} else if (_hasTok) {{
+        animateHold(3500);   // token guardado → redirección a ?_sess inminente
+      }} else {{
+        animateHold(1500);   // carga fresca → espera a que aparezca el login
+      }}
     }}
-  }} catch(e) {{ try {{ animate(T_TOTAL); }} catch(e2) {{}} }}
+  }} catch(e) {{ try {{ if (!W._ec_pre_booted) {{ W._ec_pre_booted = 1; animate(T_TOTAL); }} }} catch(e2) {{}} }}
 
   // Click handlers: nav del sidebar → tab preloader blanco;
   // submit de form (login) → fullscreen oscuro.
@@ -1242,11 +1245,15 @@ html.ec-tab-loading #_usr_header_bar { visibility: visible !important; opacity: 
       if (!clickedBtn) return;
       var navWrap = t.closest('[class*="st-key-nav_"]');
       if (navWrap) {{ animateTab(); return; }}
+      // LOGIN: el botón "Ingresar" (key btn_login) NO está dentro de un st.form, así que el
+      // gate inForm no lo cubría → ANTES el login nunca se tapaba y se veían las "capas".
+      // Al enviarlo, mostramos el preloader que ESPERA a que aparezca la app autenticada
+      // (si las credenciales fallan, se aborta solo tras el margen).
+      if (clickedBtn.closest('[class*="st-key-btn_login"]')) {{ animateHold(2500); return; }}
       var inForm = t.closest('form, [data-testid="stForm"]');
       if (inForm && clickedBtn.type !== 'button') {{
         // Si #_usr_header_bar existe estamos en la app autenticada → tab preloader.
-        // Si no existe estamos en login → fullscreen oscuro que ESPERA a que la app
-        // autenticada aparezca (si las credenciales fallan, se aborta tras el margen).
+        // Si no existe estamos en login/otra pantalla → fullscreen que ESPERA la app.
         var inApp = !!D.getElementById('_usr_header_bar');
         if (inApp) {{ animateTab(); }} else {{ animateHold(2500); }}
         return;
