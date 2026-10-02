@@ -1986,16 +1986,22 @@ def render_tab_sitio_web(**kwargs):
 
     # ── Selector de vista: Modelos (por defecto) / Tabla / Reels HOME ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
-    _vistas = ["Modelos", "Tabla", "Comparar", "Banner Hero", "Reels HOME"]
+    _vistas = ["Modelos", "Tabla", "Comparar", "Banner Hero", "WhatsApp", "Reels HOME"]
     _vicons = {"Modelos": ":material/grid_view:", "Tabla": ":material/table_rows:",
                "Comparar": ":material/compare_arrows:", "Banner Hero": ":material/wallpaper:",
-               "Reels HOME": ":material/movie:"}
+               "WhatsApp": ":material/chat:", "Reels HOME": ":material/movie:"}
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
 
     # Modo "Reels HOME": ver/editar los videos reels de la sección de Shopify (bloques del tema).
     if _vista == "Reels HOME":
         _render_reels()
+        return
+
+    # Modo "WhatsApp": editar el botón/ventana de WhatsApp flotante + sus agentes, con
+    # vista previa en vivo (sección whatsapp-float del tema).
+    if _vista == "WhatsApp":
+        _render_whatsapp()
         return
 
     # Modo "Banner Hero": editar la sección hero-cotiza del home (video/imagen de fondo,
@@ -4288,3 +4294,605 @@ def _render_hero():
     _form_html, _form_h = _build_hero_form(_info, _media_prev, _ticker)
     components.html(_form_html, height=int(_form_h), scrolling=False)
     components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)   # botón flotante "Guardar y publicar"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  VISTA "WHATSAPP": edita la sección whatsapp-float (botón + ventana + agentes)
+#  con VISTA PREVIA EN VIVO (réplica del widget). Escribe los settings del tema +
+#  los bloques 'agent'. Fotos/videos de agente → Content > Files (override).
+# ══════════════════════════════════════════════════════════════════════════════
+_WA_SEL_POS = [("bottom-right", "Abajo derecha"), ("bottom-left", "Abajo izquierda")]
+
+# (título grupo, [(key, tipo, label, extra), ...]). tipo: text|color|range|range10|select|checkbox
+_WA_GROUPS = [
+    ("Botón flotante", [
+        ("background_color", "color", "Fondo del botón", None),
+        ("text_color", "color", "Color del ícono", None),
+        ("toggle_label", "text", "Texto del botón (solo desktop)", None),
+        ("button_size", "range", "Tamaño del botón — desktop", (44, 72, 2, "px")),
+        ("button_size_mobile", "range", "Tamaño del botón — mobile", (40, 68, 2, "px")),
+        ("icon_size", "range", "Tamaño del ícono — desktop", (18, 36, 2, "px")),
+        ("icon_size_mobile", "range", "Tamaño del ícono — mobile", (16, 34, 2, "px")),
+        ("position", "select", "Ubicación en pantalla", _WA_SEL_POS),
+        ("offset", "range", "Distancia del borde", (8, 64, 4, "px")),
+        ("animation_duration", "range10", "Duración de la animación (s)", (2, 20, 1, "")),
+        ("reverse_entrance_direction", "checkbox", "Invertir dirección de entrada", None),
+        ("hide_on_mobile", "checkbox", "Ocultar el widget en mobile", None),
+    ]),
+    ("Ventana — colores", [
+        ("header_background_color", "color", "Fondo del encabezado", None),
+        ("header_text_color", "color", "Texto del encabezado", None),
+        ("panel_background_color", "color", "Fondo de la ventana", None),
+        ("agent_text_color", "color", "Texto de los agentes", None),
+        ("online_color", "color", "Color de 'en línea' / borde del avatar", None),
+    ]),
+    ("Ventana — tamaños", [
+        ("panel_width", "range", "Ancho de la ventana — desktop", (280, 460, 10, "px")),
+        ("panel_width_mobile", "range", "Ancho de la ventana — mobile", (240, 400, 10, "px")),
+        ("panel_height", "range", "Alto de la lista — desktop", (200, 500, 20, "px")),
+        ("panel_height_mobile", "range", "Alto de la lista — mobile", (160, 440, 20, "px")),
+        ("text_scale", "range", "Tamaño de los textos — desktop", (70, 160, 5, "%")),
+        ("text_scale_mobile", "range", "Tamaño de los textos — mobile", (70, 160, 5, "%")),
+        ("photo_size", "range", "Avatar / círculo — desktop", (40, 100, 4, "px")),
+        ("photo_size_mobile", "range", "Avatar / círculo — mobile", (36, 88, 4, "px")),
+    ]),
+    ("Textos de la ventana", [
+        ("panel_title", "text", "Título", None),
+        ("panel_subtitle", "text", "Subtítulo", None),
+        ("online_label", "text", "Etiqueta 'en línea'", None),
+        ("offline_label", "text", "Etiqueta 'desconectado'", None),
+    ]),
+    ("Contacto por defecto", [
+        ("phone_number", "text", "Número de WhatsApp por defecto", None),
+        ("prefilled_message", "text", "Mensaje precargado por defecto (emojis ok)", None),
+    ]),
+]
+_WA_TYPES = {k: t for _g, _fs in _WA_GROUPS for (k, t, _l, _x) in _fs}
+
+
+_WA_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;background:transparent;font-family:Inter,'Segoe UI',system-ui,sans-serif;}
+  .wae{color:#0f172a;padding:2px 2px 110px;display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start;}
+  @media (max-width:900px){ .wae{grid-template-columns:1fr;} }
+  .wae-note{grid-column:1 / -1;font-size:.74rem;color:#64748b;line-height:1.5;margin:0 0 4px;background:#f8fafc;
+    border:1px solid #eef2f7;border-left:3px solid #25D366;border-radius:9px;padding:9px 12px;}
+  .wae-card{background:#fff;border:1px solid #e8ebf3;border-radius:14px;padding:16px 18px 18px;margin-bottom:15px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+  .wae-gt{font-family:Montserrat,sans-serif;font-weight:800;font-size:.76rem;letter-spacing:.06em;text-transform:uppercase;color:#0f172a;display:flex;align-items:center;gap:9px;margin:0 0 14px;}
+  .wae-gt::before{content:'';width:4px;height:15px;border-radius:3px;background:linear-gradient(180deg,#25D366,#128C7E);}
+  .wae-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px 18px;}
+  .wae-f{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .wae-f.full{grid-column:1 / -1;}
+  .wae-lbl{font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.03em;}
+  .wae-in,.wae-sel{border:1.4px solid #e2e8f0;border-radius:9px;padding:9px 11px;font-family:inherit;font-size:.86rem;color:#0f172a;background:#fff;outline:none;width:100%;transition:border-color .15s,box-shadow .15s;}
+  .wae-in:focus,.wae-sel:focus{border-color:#25D366;box-shadow:0 0 0 3px rgba(37,211,102,.14);}
+  .wae-colorrow{display:flex;align-items:center;gap:10px;}
+  .wae-color{width:46px;height:34px;padding:0;border:1.4px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;flex:0 0 auto;}
+  .wae-colorhex{font-size:.8rem;font-weight:700;color:#334155;font-family:ui-monospace,monospace;text-transform:uppercase;}
+  .wae-rangerow{display:flex;align-items:center;gap:12px;}
+  .wae-range{flex:1;accent-color:#25D366;}
+  .wae-rv{font-size:.82rem;font-weight:800;color:#0f172a;min-width:56px;text-align:right;}
+  .wae-tog{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+  .wae-tog input{position:absolute;opacity:0;width:0;height:0;}
+  .wae-sw{width:42px;height:24px;border-radius:999px;background:#cbd5e1;position:relative;transition:background .18s;flex:0 0 auto;}
+  .wae-sw::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+  .wae-tog input:checked + .wae-sw{background:#16a34a;}
+  .wae-tog input:checked + .wae-sw::after{transform:translateX(18px);}
+  .wae-togtxt{font-size:.82rem;font-weight:600;color:#334155;}
+  /* agentes */
+  .wae-ags{display:flex;flex-direction:column;gap:12px;}
+  .wae-ag{border:1px solid #e8ebf3;border-radius:12px;padding:12px;background:#fafbff;}
+  .wae-ag-head{display:flex;align-items:center;gap:12px;}
+  .wae-ag-av{width:48px;height:48px;border-radius:50%;flex:0 0 auto;overflow:hidden;background:#e2e8f0;display:flex;align-items:center;justify-content:center;border:2px solid #25D366;color:#64748b;font-weight:800;font-size:1rem;}
+  .wae-ag-av img,.wae-ag-av video{width:100%;height:100%;object-fit:cover;}
+  .wae-ag-f2{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .wae-ag-online{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;color:#475569;text-transform:uppercase;cursor:pointer;flex:0 0 auto;}
+  .wae-ag-online input{width:15px;height:15px;accent-color:#16a34a;}
+  .wae-ag-del{flex:0 0 auto;width:30px;height:30px;border:none;border-radius:8px;background:#fff1f2;color:#e11d48;font-size:18px;cursor:pointer;font-weight:700;}
+  .wae-ag-del:hover{background:#e11d48;color:#fff;}
+  .wae-ag-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px;}
+  .wae-ag-media{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap;}
+  .wae-ag-pick{display:inline-flex;align-items:center;gap:6px;border:1.4px solid #e2e8f0;background:#fff;border-radius:8px;padding:7px 11px;font-family:Montserrat,sans-serif;font-weight:700;font-size:.68rem;letter-spacing:.03em;text-transform:uppercase;color:#334155;cursor:pointer;}
+  .wae-ag-pick:hover{border-color:#25D366;color:#128C7E;}
+  .wae-ag-file{display:none;}
+  .wae-ag-chosen{font-size:.7rem;color:#16a34a;font-weight:700;}
+  .wae-ag-add{border:1.5px dashed #86efac;background:#f0fdf4;color:#15803d;border-radius:10px;padding:10px 12px;font-family:Montserrat,sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;width:100%;margin-top:4px;}
+  .wae-ag-add:hover{background:#dcfce7;}
+  .wae-in-sm{border:1.4px solid #e2e8f0;border-radius:8px;padding:7px 9px;font-family:inherit;font-size:.82rem;color:#0f172a;background:#fff;outline:none;width:100%;}
+  .wae-in-sm:focus{border-color:#25D366;}
+  /* ── VISTA PREVIA ── */
+  .wae-prev{position:sticky;top:6px;}
+  .wae-prev-card{background:#eef1f7;border:1px solid #e3e7f1;border-radius:16px;padding:14px;}
+  .wae-prev-h{font-family:Montserrat,sans-serif;font-weight:800;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:#334155;margin:0 0 10px;display:flex;align-items:center;justify-content:space-between;}
+  .wae-prev-toggle{display:inline-flex;border:1px solid #cbd5e1;border-radius:999px;overflow:hidden;}
+  .wae-prev-toggle button{border:none;background:#fff;color:#475569;font-family:Montserrat,sans-serif;font-weight:700;font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;padding:5px 11px;cursor:pointer;}
+  .wae-prev-toggle button.on{background:#25D366;color:#fff;}
+  .wae-stage{position:relative;height:560px;border-radius:12px;overflow:hidden;
+    background:#dfe6ef url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23dfe6ef'/%3E%3Cpath d='M0 20h40M20 0v40' stroke='%23d4dbe6' stroke-width='1'/%3E%3C/svg%3E");}
+  .wae-stage.is-mobile{max-width:300px;margin:0 auto;border:8px solid #0f172a;border-radius:26px;}
+  #wapWrap{position:absolute;bottom:18px;right:18px;display:flex;flex-direction:column;align-items:flex-end;gap:14px;}
+  #wapWrap.left{right:auto;left:18px;align-items:flex-start;}
+  #wapPanel{width:300px;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 18px 40px -10px rgba(0,0,0,.35);display:flex;flex-direction:column;}
+  #wapHead{padding:18px 16px 14px;text-align:center;}
+  #wapTitle{font-weight:700;font-size:16px;line-height:1.3;margin:0;}
+  #wapSub{font-size:12px;line-height:1.35;opacity:.92;margin:6px 0 0;}
+  #wapAgents{padding:7px;max-height:300px;overflow-y:auto;}
+  .wap-ag{display:flex;align-items:center;gap:11px;padding:9px;border-radius:8px;cursor:default;}
+  .wap-ag:hover{background:rgba(0,0,0,.04);}
+  .wap-ag-ph{flex:0 0 auto;border-radius:50%;overflow:hidden;border:2px solid #25D366;box-sizing:border-box;padding:2px;display:flex;align-items:center;justify-content:center;background:#eef2f7;color:#64748b;font-weight:800;}
+  .wap-ag-ph img,.wap-ag-ph video{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+  .wap-ag-nm{font-weight:700;font-size:14px;margin:0;line-height:1.25;}
+  .wap-ag-rl{font-size:12px;margin:2px 0 0;opacity:.62;}
+  .wap-ag-st{font-size:11.5px;font-weight:600;margin:3px 0 0;}
+  #wapBtn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.25);padding:0 20px;}
+  #wapBtn.circle{border-radius:50%;padding:0;}
+  #wapBtn svg{display:block;}
+  #wapLbl{font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+  @media (max-width:640px){ .wae-grid,.wae-ag-row{grid-template-columns:1fr;} }
+</style></head><body>
+<div class="wae">
+  <div class="wae-left">
+    <div class="wae-note">Edita el <b>botón de WhatsApp flotante</b> y su ventana de agentes. La vista previa de la
+    derecha se actualiza en vivo. Los cambios se guardan en tu tema de Shopify con <b>Guardar y publicar</b>.</div>
+    __CARDS__
+    <div class="wae-card"><div class="wae-gt">Agentes</div>
+      <div class="wae-ags" id="wae-ags">__AGENTS__</div>
+      <button type="button" class="wae-ag-add" id="wae-ag-add">+ Agregar agente</button>
+    </div>
+  </div>
+  <div class="wae-prev">
+    <div class="wae-prev-card">
+      <div class="wae-prev-h"><span>Vista previa</span>
+        <span class="wae-prev-toggle"><button type="button" id="wapD" class="on">Desktop</button><button type="button" id="wapM">Mobile</button></span>
+      </div>
+      <div class="wae-stage" id="wapStage">
+        <div id="wapWrap">
+          <div id="wapPanel">
+            <div id="wapHead"><p id="wapTitle"></p><p id="wapSub"></p></div>
+            <div id="wapAgents"></div>
+          </div>
+          <button id="wapBtn" type="button">
+            <span id="wapIc"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.44.79 3.06 1.2 4.71 1.2h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.05 2Zm0 18.15h-.01c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.42a8.18 8.18 0 0 1 2.41 5.83c0 4.55-3.7 8.24-8.23 8.24Zm4.52-6.17c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.16.24-.64.81-.78.97-.15.16-.29.18-.54.06-.25-.13-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.13-.15.17-.25.25-.41.08-.17.04-.31-.02-.44-.06-.12-.56-1.36-.77-1.86-.2-.49-.41-.42-.56-.43h-.48c-.16 0-.43.06-.66.31-.22.25-.86.85-.86 2.06s.89 2.39 1.01 2.56c.13.16 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.16-.48-.28Z"></path></svg></span>
+            <span id="wapLbl"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var D=document, W=window, MOB=false;
+  function g(k){ return D.querySelector('[data-wk="'+k+'"]'); }
+  function val(k){ var e=g(k); if(!e) return ''; if(e.getAttribute('data-wtype')==='checkbox') return e.checked; return e.value; }
+  function num(k,d){ var v=parseFloat(val(k)); return isNaN(v)?d:v; }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function px(k,km){ return (MOB?num(km,num(k,0)):num(k,0)); }
+
+  function agents(){
+    var out=[];
+    D.querySelectorAll('.wae-ag').forEach(function(r){
+      out.push({
+        name:(r.querySelector('.wae-ag-name').value||'').trim(),
+        role:(r.querySelector('.wae-ag-role').value||'').trim(),
+        online:!!r.querySelector('.wae-ag-online input').checked,
+        av: r.getAttribute('data-avurl')||''
+      });
+    });
+    return out;
+  }
+  function updatePreview(){
+    var bg=val('background_color')||'#34A917', tcol=val('text_color')||'#fff';
+    var hbg=val('header_background_color')||'#25D366', htx=val('header_text_color')||'#fff';
+    var pbg=val('panel_background_color')||'#fff', atx=val('agent_text_color')||'#151D28', onc=val('online_color')||'#25D366';
+    var scale=(MOB?num('text_scale_mobile',100):num('text_scale',100))/100;
+    var bsize=px('button_size','button_size_mobile'), isize=px('icon_size','icon_size_mobile');
+    var pw=px('panel_width','panel_width_mobile'), av=px('photo_size','photo_size_mobile');
+    // boton
+    var btn=D.getElementById('wapBtn'), ic=D.getElementById('wapIc'), lbl=D.getElementById('wapLbl'), wrap=D.getElementById('wapWrap');
+    btn.style.background=bg; btn.style.color=tcol;
+    btn.style.height=bsize+'px'; btn.style.minHeight=bsize+'px';
+    ic.querySelector('svg').style.width=isize+'px'; ic.querySelector('svg').style.height=isize+'px';
+    lbl.textContent = (val('toggle_label')||''); lbl.style.color=tcol;
+    if(MOB){ btn.classList.add('circle'); btn.style.width=bsize+'px'; lbl.style.display='none'; }
+    else { btn.classList.remove('circle'); btn.style.width='auto'; lbl.style.display=(val('toggle_label')? 'inline':'none'); }
+    // posicion
+    if(val('position')==='bottom-left'){ wrap.classList.add('left'); } else { wrap.classList.remove('left'); }
+    // panel
+    var panel=D.getElementById('wapPanel'), head=D.getElementById('wapHead');
+    panel.style.width=pw+'px'; panel.style.background=pbg;
+    head.style.background=hbg; head.style.color=htx;
+    var t=D.getElementById('wapTitle'), s=D.getElementById('wapSub');
+    t.textContent=val('panel_title')||''; t.style.fontSize=(17*scale)+'px';
+    s.textContent=val('panel_subtitle')||''; s.style.fontSize=(13*scale)+'px';
+    s.style.display = (val('panel_subtitle')? 'block':'none');
+    // agentes
+    var onl=val('online_label')||'en línea', off=val('offline_label')||'desconectado';
+    var html='';
+    agents().forEach(function(a){
+      var avhtml;
+      if(a.av && a.av.indexOf('video')===0){ avhtml='<video src="'+esc(a.av.slice(5))+'" muted loop autoplay playsinline></video>'; }
+      else if(a.av){ avhtml='<img src="'+esc(a.av)+'" alt="">'; }
+      else { avhtml=esc((a.name||'?').slice(0,1)); }
+      var bord = a.online?onc:'#b9c2d0';
+      html+='<div class="wap-ag">'
+        +'<span class="wap-ag-ph" style="width:'+av+'px;height:'+av+'px;border-color:'+bord+';'+(a.online?'':'filter:grayscale(.4);')+'">'+avhtml+'</span>'
+        +'<span><p class="wap-ag-nm" style="color:'+atx+';font-size:'+(14*scale)+'px;">'+esc(a.name||'')+'</p>'
+        +(a.role?'<p class="wap-ag-rl" style="color:'+atx+';font-size:'+(12*scale)+'px;">'+esc(a.role)+'</p>':'')
+        +'<p class="wap-ag-st" style="color:'+(a.online?onc:'#9aa6b8')+';font-size:'+(11.5*scale)+'px;">'+esc(a.online?onl:off)+'</p></span></div>';
+    });
+    var ph=px('panel_height','panel_height_mobile'); var agBox=D.getElementById('wapAgents');
+    agBox.innerHTML = html || '<div style="padding:16px;color:#94a3b8;font-size:12px;text-align:center;">Sin agentes (modo botón simple)</div>';
+    if(ph) agBox.style.maxHeight = ph+'px';
+    D.getElementById('wapPanel').style.display = html? 'flex':'none';
+  }
+  W._waUpdate=updatePreview;
+
+  // toggle desktop/mobile
+  D.getElementById('wapD').addEventListener('click',function(){ MOB=false; this.classList.add('on'); D.getElementById('wapM').classList.remove('on'); D.getElementById('wapStage').classList.remove('is-mobile'); updatePreview(); });
+  D.getElementById('wapM').addEventListener('click',function(){ MOB=true; this.classList.add('on'); D.getElementById('wapD').classList.remove('on'); D.getElementById('wapStage').classList.add('is-mobile'); updatePreview(); });
+
+  // sliders / colores: valor en vivo + preview
+  D.querySelectorAll('.wae-range').forEach(function(r){ var out=r.parentNode.querySelector('.wae-rv');
+    function u(){ var v=r.value; if(r.getAttribute('data-wtype')==='range10'){ out.textContent=(v/10).toFixed(1)+'s'; } else { out.textContent=v+(r.getAttribute('data-unit')||''); } }
+    r.addEventListener('input',u); u(); });
+  D.querySelectorAll('.wae-color').forEach(function(c){ var out=c.parentNode.querySelector('.wae-colorhex'); function u(){ out.textContent=c.value; } c.addEventListener('input',u); u(); });
+
+  // agentes: avatar preview al elegir archivo + agregar/eliminar
+  function bindAgentFiles(r){
+    r.querySelectorAll('.wae-ag-pick').forEach(function(b){ b.addEventListener('click',function(){ var f=r.querySelector(b.getAttribute('data-for')); if(f) f.click(); }); });
+    r.querySelectorAll('.wae-ag-file').forEach(function(f){ f.addEventListener('change',function(){
+      var file=f.files&&f.files[0]; var ch=r.querySelector('.wae-ag-chosen');
+      if(file){ var url=URL.createObjectURL(file); var isV=(file.type||'').indexOf('video')===0;
+        r.setAttribute('data-avurl', (isV?'video':'')+url);
+        var av=r.querySelector('.wae-ag-av'); av.innerHTML = isV?('<video src="'+url+'" muted loop autoplay playsinline></video>'):('<img src="'+url+'">');
+        if(ch) ch.textContent='✓ '+file.name;
+      }
+      setDirty(); updatePreview();
+    }); });
+  }
+  D.querySelectorAll('.wae-ag').forEach(bindAgentFiles);
+  var agAdd=D.getElementById('wae-ag-add');
+  if(agAdd){ agAdd.addEventListener('click',function(){
+    var list=D.getElementById('wae-ags'); var div=D.createElement('div'); div.className='wae-ag'; div.setAttribute('data-agid',''); div.setAttribute('data-avurl','');
+    div.innerHTML=''
+      +'<div class="wae-ag-head"><span class="wae-ag-av">?</span>'
+      +'<span class="wae-ag-f2"><input class="wae-ag-name wae-in-sm" placeholder="Nombre" value=""><input class="wae-ag-role wae-in-sm" placeholder="Cargo" value=""></span>'
+      +'<label class="wae-ag-online"><input type="checkbox" checked><span>En línea</span></label>'
+      +'<button type="button" class="wae-ag-del" title="Eliminar">×</button></div>'
+      +'<div class="wae-ag-row"><input class="wae-ag-phone wae-in-sm" placeholder="WhatsApp (+56 9 ...)" value=""><input class="wae-ag-msg wae-in-sm" placeholder="Mensaje (emojis ok)" value=""></div>'
+      +'<div class="wae-ag-media"><button type="button" class="wae-ag-pick" data-for=".wae-ag-img">Foto</button>'
+      +'<input type="file" class="wae-ag-file wae-ag-img" accept="image/png,image/jpeg,image/webp">'
+      +'<button type="button" class="wae-ag-pick" data-for=".wae-ag-vid">Video</button>'
+      +'<input type="file" class="wae-ag-file wae-ag-vid" accept="video/mp4,video/quicktime,video/webm">'
+      +'<span class="wae-ag-chosen"></span></div>'
+      +'<input type="hidden" class="wae-ag-photourl" value=""><input type="hidden" class="wae-ag-videofile" value="">';
+    list.appendChild(div); bindAgentFiles(div); setDirty(); updatePreview();
+  }); }
+  D.addEventListener('click',function(e){ var d=e.target&&e.target.closest?e.target.closest('.wae-ag-del'):null;
+    if(d){ var r=d.closest('.wae-ag'); if(r){ r.remove(); setDirty(); updatePreview(); } } });
+
+  // dirty + guardado (puente sw_savecmd)
+  function fire(payload){ try{ var P=W.parent, PD=P.document; var inp=PD.querySelector('.st-key-sw_savecmd input'); if(!inp) return;
+    var setter=Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype,'value').set; inp.focus({preventScroll:true}); setter.call(inp, payload+'|'+Date.now());
+    inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new FocusEvent('blur',{bubbles:true})); inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true})); inp.blur(); }catch(e){} }
+  function setDirty(){ try{ W.parent._swDirty=true; }catch(e){} }
+  function collectSettings(){ var o={}; D.querySelectorAll('[data-wk]').forEach(function(el){ var k=el.getAttribute('data-wk'), t=el.getAttribute('data-wtype');
+    if(t==='checkbox') o[k]=el.checked; else if(t==='range'||t==='range10') o[k]=parseInt(el.value||'0',10); else o[k]=el.value; }); return o; }
+  function collectAgents(){ var out=[]; D.querySelectorAll('.wae-ag').forEach(function(r){ out.push({
+    id:r.getAttribute('data-agid')||'', name:(r.querySelector('.wae-ag-name').value||'').trim(), role:(r.querySelector('.wae-ag-role').value||'').trim(),
+    phone:(r.querySelector('.wae-ag-phone').value||'').trim(), message:(r.querySelector('.wae-ag-msg').value||'').trim(),
+    online:!!r.querySelector('.wae-ag-online input').checked, photo_url:(r.querySelector('.wae-ag-photourl').value||''), video_file:(r.querySelector('.wae-ag-videofile').value||'') }); }); return out; }
+  function fileB64(file){ return new Promise(function(res){ try{ var rd=new FileReader(); rd.onload=function(){ var s=String(rd.result||''); var i=s.indexOf(','); res(i>=0?s.slice(i+1):''); }; rd.onerror=function(){res('');}; rd.readAsDataURL(file); }catch(e){res('');} }); }
+  async function collectAgentMedia(){ var media={}, rows=D.querySelectorAll('.wae-ag'); for(var i=0;i<rows.length;i++){ var r=rows[i], o={};
+    var fi=r.querySelector('.wae-ag-img'), fv=r.querySelector('.wae-ag-vid');
+    if(fi&&fi.files&&fi.files[0]){ var b=await fileB64(fi.files[0]); if(b) o.img={name:fi.files[0].name,mime:(fi.files[0].type||''),b64:b}; }
+    if(fv&&fv.files&&fv.files[0]){ var b2=await fileB64(fv.files[0]); if(b2) o.vid={name:fv.files[0].name,mime:(fv.files[0].type||''),b64:b2}; }
+    if(o.img||o.vid) media[String(i)]=o; } return media; }
+  try{ var P=W.parent; P._swDirty=false; P._swSave=async function(){ try{ var fb=P.document.getElementById('sw-float-save'); if(fb) fb.textContent='Subiendo…';
+    fire(JSON.stringify({op:'whatsapp', settings:collectSettings(), agents:collectAgents(), agentMedia: await collectAgentMedia()})); }catch(e){} }; }catch(e){}
+  D.addEventListener('input', function(){ setDirty(); updatePreview(); });
+  D.addEventListener('change', function(){ setDirty(); updatePreview(); });
+  updatePreview();
+})();
+</script></body></html>"""
+
+
+def _wa_agent_row_html(ag):
+    """Fila editable de un agente (con preview de avatar)."""
+    _av = str(ag.get("av_url") or "").strip()
+    _is_vid = bool(ag.get("av_is_video"))
+    if _av and _is_vid:
+        _avh = f'<video src="{_he(_av)}" muted loop autoplay playsinline></video>'
+    elif _av:
+        _avh = f'<img src="{_he(_av)}">'
+    else:
+        _avh = _he((ag.get("name") or "?")[:1] or "?")
+    _oc = " checked" if ag.get("online") else ""
+    _avurl_attr = (("video" + _av) if (_av and _is_vid) else _av)
+    return (
+        f'<div class="wae-ag" data-agid="{_he(ag.get("id") or "")}" data-avurl="{_he(_avurl_attr)}">'
+        '<div class="wae-ag-head">'
+        f'<span class="wae-ag-av">{_avh}</span>'
+        '<span class="wae-ag-f2">'
+        f'<input class="wae-ag-name wae-in-sm" placeholder="Nombre" value="{_he(ag.get("name") or "")}">'
+        f'<input class="wae-ag-role wae-in-sm" placeholder="Cargo" value="{_he(ag.get("role") or "")}"></span>'
+        f'<label class="wae-ag-online"><input type="checkbox"{_oc}><span>En línea</span></label>'
+        '<button type="button" class="wae-ag-del" title="Eliminar">&times;</button></div>'
+        '<div class="wae-ag-row">'
+        f'<input class="wae-ag-phone wae-in-sm" placeholder="WhatsApp (+56 9 ...)" value="{_he(ag.get("phone") or "")}">'
+        f'<input class="wae-ag-msg wae-in-sm" placeholder="Mensaje (emojis ok)" value="{_he(ag.get("message") or "")}"></div>'
+        '<div class="wae-ag-media">'
+        '<button type="button" class="wae-ag-pick" data-for=".wae-ag-img">Foto</button>'
+        '<input type="file" class="wae-ag-file wae-ag-img" accept="image/png,image/jpeg,image/webp">'
+        '<button type="button" class="wae-ag-pick" data-for=".wae-ag-vid">Video</button>'
+        '<input type="file" class="wae-ag-file wae-ag-vid" accept="video/mp4,video/quicktime,video/webm">'
+        '<span class="wae-ag-chosen"></span></div>'
+        f'<input type="hidden" class="wae-ag-photourl" value="{_he(ag.get("photo_url") or "")}">'
+        f'<input type="hidden" class="wae-ag-videofile" value="{_he(ag.get("video_file") or "")}">'
+        '</div>')
+
+
+def _build_whatsapp_form(info, agents):
+    """Form del editor de WhatsApp (settings + agentes) con vista previa en vivo."""
+    import re as _re2
+    s = info.get("settings") or {}
+
+    def _color(k, fb):
+        _x = str(s.get(k) or "").strip()
+        return _x if _re2.match(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", _x) else fb
+
+    def _isbool(k, d=False):
+        _x = s.get(k, d)
+        return _x if isinstance(_x, bool) else str(_x).strip().lower() in ("true", "1", "yes", "on")
+
+    def _field(k, t, lbl, extra):
+        if t == "color":
+            _fb = {"background_color": "#34A917", "online_color": "#25D366",
+                   "header_background_color": "#25D366", "panel_background_color": "#FFFFFF"}.get(k, "#FFFFFF")
+            _cv = _color(k, _fb)
+            return ('<div class="wae-f">'
+                    f'<label class="wae-lbl">{_he(lbl)}</label>'
+                    '<div class="wae-colorrow">'
+                    f'<input type="color" class="wae-color" data-wk="{k}" data-wtype="color" value="{_he(_cv)}">'
+                    '<span class="wae-colorhex"></span></div></div>')
+        if t in ("range", "range10"):
+            _mn, _mx, _stp, _un = extra
+            try:
+                _cur = float(s.get(k, _mn))
+            except Exception:
+                _cur = _mn
+            if t == "range10":
+                _cur = int(round(_cur * 10))
+            else:
+                _cur = int(round(_cur))
+            _cur = max(_mn, min(_mx, _cur))
+            return ('<div class="wae-f">'
+                    f'<label class="wae-lbl">{_he(lbl)}</label>'
+                    '<div class="wae-rangerow">'
+                    f'<input type="range" class="wae-range" data-wk="{k}" data-wtype="{t}" data-unit="{_he(_un)}" '
+                    f'min="{_mn}" max="{_mx}" step="{_stp}" value="{_cur}">'
+                    '<span class="wae-rv"></span></div></div>')
+        if t == "select":
+            _cur = str(s.get(k) or "")
+            _opts = "".join(f'<option value="{_he(v)}"{" selected" if v == _cur else ""}>{_he(ol)}</option>'
+                            for v, ol in extra)
+            return ('<div class="wae-f">'
+                    f'<label class="wae-lbl">{_he(lbl)}</label>'
+                    f'<select class="wae-sel" data-wk="{k}" data-wtype="select">{_opts}</select></div>')
+        if t == "checkbox":
+            _ck = " checked" if _isbool(k) else ""
+            return ('<div class="wae-f full">'
+                    '<label class="wae-tog">'
+                    f'<input type="checkbox" data-wk="{k}" data-wtype="checkbox"{_ck}>'
+                    f'<span class="wae-sw"></span><span class="wae-togtxt">{_he(lbl)}</span></label></div>')
+        # text
+        _full = ' full' if k in ("panel_title", "panel_subtitle", "prefilled_message", "toggle_label") else ''
+        return (f'<div class="wae-f{_full}">'
+                f'<label class="wae-lbl">{_he(lbl)}</label>'
+                f'<input class="wae-in" data-wk="{k}" data-wtype="text" value="{_he(str(s.get(k) or ""))}"></div>')
+
+    _cards = ""
+    for _gt, _fs in _WA_GROUPS:
+        _rows = "".join(_field(k, t, lbl, x) for (k, t, lbl, x) in _fs)
+        _cards += f'<div class="wae-card"><div class="wae-gt">{_he(_gt)}</div><div class="wae-grid">{_rows}</div></div>'
+    _ags = "".join(_wa_agent_row_html(a) for a in (agents or []))
+    _html = _WA_FORM_TEMPLATE.replace("__CARDS__", _cards).replace("__AGENTS__", _ags)
+    return _html
+
+
+def _wa_agent_items(info):
+    """Lista ordenada de los bloques 'agent' de la sección (con avatar resuelto)."""
+    _blocks = info.get("blocks") or {}
+    _order = info.get("block_order") or list(_blocks.keys())
+    _out = []
+    for _bid in _order:
+        _b = _blocks.get(_bid)
+        if not (isinstance(_b, dict) and _b.get("type") == "agent"):
+            continue
+        _st = _b.get("settings") or {}
+        _photo_url = str(_st.get("photo_url") or "").strip()
+        _video_file = str(_st.get("video_file") or "").strip()
+        _av_url, _av_is_video = "", False
+        try:
+            if _video_file:
+                _av_url = _shop.resolver_media_preview("shopify://files/videos/" + _video_file, True)
+                _av_is_video = bool(_av_url)
+            elif _photo_url:
+                _av_url = _photo_url
+            elif _st.get("video"):
+                _av_url = _shop.resolver_media_preview(_st.get("video"), True)
+                _av_is_video = bool(_av_url)
+            elif _st.get("photo"):
+                _av_url = _shop.resolver_media_preview(_st.get("photo"), False)
+        except Exception:
+            _av_url = _photo_url or ""
+        _out.append({
+            "id": _bid, "name": str(_st.get("name") or ""), "role": str(_st.get("role") or ""),
+            "phone": str(_st.get("phone_number") or ""), "message": str(_st.get("prefilled_message") or ""),
+            "online": bool(_st.get("online")), "photo_url": _photo_url, "video_file": _video_file,
+            "av_url": _av_url or "", "av_is_video": _av_is_video})
+    return _out
+
+
+def _guardar_whatsapp(info, data):
+    """Guarda settings + bloques de agente del widget de WhatsApp. Sube fotos/videos de
+    agente a Content > Files. Devuelve lista de errores."""
+    _errs = []
+    _settings = data.get("settings") or {}
+    _patch = {}
+    for _k, _v in _settings.items():
+        _t = _WA_TYPES.get(_k)
+        if _t is None:
+            continue
+        if _t == "range":
+            try:
+                _patch[_k] = int(float(_v))
+            except Exception:
+                pass
+        elif _t == "range10":
+            try:
+                _patch[_k] = round(int(float(_v)) / 10.0, 2)
+            except Exception:
+                pass
+        elif _t == "checkbox":
+            _patch[_k] = bool(_v)
+        else:
+            _patch[_k] = str(_v if _v is not None else "")
+
+    _agents = data.get("agents") or []
+    _media = data.get("agentMedia") or {}
+
+    def _up_img(m):
+        try:
+            _b = base64.b64decode(m.get("b64") or "")
+        except Exception:
+            _b = b""
+        if not _b:
+            return ""
+        _gid, _pv, _e = _shop.subir_imagen_archivo(m.get("name") or "agente.jpg", m.get("mime") or "image/jpeg", _b)
+        if _e or not _pv:
+            _errs.append(_e or "No se pudo subir la foto del agente.")
+            return ""
+        return _pv
+
+    def _up_vid(m):
+        try:
+            _b = base64.b64decode(m.get("b64") or "")
+        except Exception:
+            _b = b""
+        if not _b:
+            return ""
+        _ref, _pv, _src, _e = _shop.subir_video_archivo(m.get("name") or "agente.mp4", m.get("mime") or "video/mp4", _b)
+        if _e or not _ref:
+            _errs.append(_e or "No se pudo subir el video del agente.")
+            return ""
+        return str(_ref).rsplit("/", 1)[-1]
+
+    _items = []
+    for _i, _a in enumerate(_agents):
+        _nm = str(_a.get("name") or "").strip()
+        _ph = str(_a.get("phone") or "").strip()
+        if not (_nm or _ph):
+            continue   # agente vacío → se descarta
+        _st = {
+            "name": _nm, "role": str(_a.get("role") or "").strip(),
+            "online": bool(_a.get("online")),
+            "phone_number": _ph, "prefilled_message": str(_a.get("message") or ""),
+            "photo_url": str(_a.get("photo_url") or ""), "video_file": str(_a.get("video_file") or ""),
+        }
+        _m = _media.get(str(_i)) or {}
+        if _m.get("img"):
+            _u = _up_img(_m["img"])
+            if _u:
+                _st["photo_url"] = _u
+                _st["video_file"] = ""
+        if _m.get("vid"):
+            _fn = _up_vid(_m["vid"])
+            if _fn:
+                _st["video_file"] = _fn
+                _st["photo_url"] = ""
+        _items.append({"id": (_a.get("id") or ""), "settings": _st})
+
+    _ok, _e, _bk = _shop.guardar_seccion_settings(
+        info.get("theme_id"), info.get("asset_key"), info.get("section_id"),
+        _patch, backup_prefix="whatsapp", bloques_tipo="agent", bloques_items=_items)
+    if not _ok:
+        _errs.append(_e)
+    return _errs
+
+
+def _render_whatsapp():
+    """Vista WhatsApp: edita la sección whatsapp-float del tema (botón + ventana + agentes)."""
+    _h1, _h2 = st.columns([5, 1.3], vertical_alignment="bottom")
+    with _h1:
+        st.markdown(f'<div class="sw-sec">{_ic("box", "#0f172a", 17, 0)}WhatsApp flotante'
+                    '<span style="color:#94a3b8;font-weight:800;font-size:.72rem;margin-left:8px;">'
+                    'botón · ventana · agentes · vista previa en vivo</span></div>', unsafe_allow_html=True)
+    with _h2:
+        if st.button("Actualizar", icon=":material/refresh:", key="sw_wa_refresh", use_container_width=True):
+            st.session_state.pop("sw_wa", None)
+            st.session_state.pop("sw_wa_err", None)
+            st.rerun()
+
+    if st.session_state.pop("sw_wa_saved", False):
+        st.success("WhatsApp guardado en el tema. Cuando publiques ese tema, pasa a producción.",
+                   icon=":material/check_circle:")
+    _werrs = st.session_state.pop("sw_wa_errs", None)
+    if _werrs:
+        st.warning("No se pudo guardar del todo (revisa):\n\n" + "\n\n".join(f"- {e}" for e in _werrs),
+                   icon=":material/error:")
+
+    _info = st.session_state.get("sw_wa")
+    if _info is None:
+        with st.spinner("Buscando el widget de WhatsApp en tu tema de Shopify…"):
+            _info, _werr = None, None
+            for _cand in ("whatsapp-float", "whatsapp-flotante", "whatsapp", "whatsapp-widget", "floating-whatsapp"):
+                _info, _werr = _shop.leer_seccion(_cand)
+                if _info:
+                    break
+        st.session_state["sw_wa"] = _info or {}
+        st.session_state["sw_wa_err"] = _werr
+        with st.spinner("Resolviendo fotos/videos de los agentes…"):
+            st.session_state["sw_wa_agents"] = _wa_agent_items(_info) if _info else []
+    if not _info:
+        st.warning(st.session_state.get("sw_wa_err")
+                   or "No se encontró la sección «WhatsApp flotante» en el tema. ¿Cómo se llama el archivo "
+                      "liquid (p. ej. sections/whatsapp-float.liquid)? Dímelo y ajusto la búsqueda.")
+        return
+
+    if str(_info.get("theme_role")) != "main":
+        st.info(f"Editando en el tema BORRADOR «{_info.get('theme_name','')}». "
+                "Publica ese tema para que salga en producción.", icon=":material/draft:")
+
+    # Puente de guardado (sw_savecmd).
+    if st.session_state.pop("_sw_reset_savecmd", False):
+        st.session_state["sw_savecmd"] = ""
+    _sc = st.text_input("savecmd", key="sw_savecmd", label_visibility="collapsed")
+    if _sc and "|" in _sc:
+        _sbody, _sts = _sc.rsplit("|", 1)
+        if _sts != st.session_state.get("sw_savecmd_ts"):
+            st.session_state["sw_savecmd_ts"] = _sts
+            st.session_state["_sw_reset_savecmd"] = True
+            import json as _json
+            try:
+                _data = _json.loads(_sbody)
+            except Exception:
+                _data = None
+            if _data and _data.get("op") == "whatsapp":
+                with st.spinner("Subiendo medios y guardando en Shopify…"):
+                    _errs = _guardar_whatsapp(_info, _data)
+                st.session_state.pop("sw_wa", None)
+                if _errs:
+                    st.session_state["sw_wa_errs"] = _errs
+                else:
+                    st.session_state["sw_wa_saved"] = True
+                st.rerun()
+
+    _agents = st.session_state.get("sw_wa_agents") or []
+    _form_html = _build_whatsapp_form(_info, _agents)
+    components.html(_form_html, height=max(900, 420 + len(_WA_GROUPS) * 180 + len(_agents) * 150), scrolling=False)
+    components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)
