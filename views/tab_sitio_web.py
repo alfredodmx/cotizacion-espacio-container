@@ -4849,11 +4849,10 @@ def _render_whatsapp():
     _info = st.session_state.get("sw_wa")
     if _info is None:
         with st.spinner("Buscando el widget de WhatsApp en tu tema de Shopify…"):
-            _info, _werr = None, None
-            for _cand in ("whatsapp-float", "whatsapp-flotante", "whatsapp", "whatsapp-widget", "floating-whatsapp"):
-                _info, _werr = _shop.leer_seccion(_cand)
-                if _info:
-                    break
+            _info, _werr = _shop.leer_seccion_multi(
+                ("whatsapp-float", "whatsapp-flotante", "whatsapp", "whatsapp-widget",
+                 "floating-whatsapp", "whatsapp-button", "whatsapp-chat"),
+                contiene="whatsapp")
         st.session_state["sw_wa"] = _info or {}
         st.session_state["sw_wa_err"] = _werr
         with st.spinner("Resolviendo fotos/videos de los agentes…"):

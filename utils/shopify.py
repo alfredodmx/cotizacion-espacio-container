@@ -1514,6 +1514,83 @@ def leer_seccion(tipo):
     return None, (_primer_err or f"No se encontró una sección '{tipo}' en ningún tema.")
 
 
+def _seccion_multi_en_tema(tema, tipos_set, sub):
+    """Como _seccion_por_tipo_en_tema pero en UNA pasada busca cualquier tipo de `tipos_set`
+    o (si no hay exacto) cualquier sección cuyo type contenga el substring `sub`. Lee cada
+    asset JSON del tema UNA sola vez (no re-escanea por candidato). DEFENSIVO."""
+    import json as _json
+    if not isinstance(tema, dict):
+        return None, None
+    _tid = tema.get("id")
+    _keys, err2 = listar_assets_json(_tid)
+    if err2:
+        return None, err2
+
+    def _mk(_key, _sid, _sec):
+        return {"theme_id": _tid, "theme_name": tema.get("name") or "",
+                "theme_role": str(tema.get("role") or ""), "asset_key": _key,
+                "section_id": _sid, "settings": dict(_sec.get("settings") or {}),
+                "blocks": dict(_sec.get("blocks") or {}),
+                "block_order": list(_sec.get("block_order") or [])}
+
+    _sd = [k for k in _keys if k == "config/settings_data.json"]
+    _idx = [k for k in _keys if k == "templates/index.json"]
+    _idx2 = [k for k in _keys if k.startswith("templates/") and k.endswith(".json") and k not in _idx]
+    _grp = [k for k in _keys if k.startswith("sections/") and k.endswith(".json")]
+    _fallback = None
+    for _key in _sd + _idx + _idx2 + _grp:
+        _val, _e = leer_asset(_tid, _key)
+        if _e or not _val:
+            continue
+        try:
+            _obj = _json.loads(_val)
+        except Exception:
+            continue
+        _cont = _obj
+        if _key == "config/settings_data.json":
+            _cont = _obj.get("current") if isinstance(_obj.get("current"), dict) else {}
+        _secs = _cont.get("sections") if isinstance(_cont, dict) else None
+        if not isinstance(_secs, dict):
+            continue
+        for _sid, _sec in _secs.items():
+            if not isinstance(_sec, dict):
+                continue
+            _ty = _sec.get("type")
+            if not _ty:
+                continue
+            if _ty in tipos_set:
+                return _mk(_key, _sid, _sec), None          # exacto gana
+            if sub and _fallback is None and sub in str(_ty).lower():
+                _fallback = _mk(_key, _sid, _sec)            # substring = respaldo
+    if _fallback is not None:
+        return _fallback, None
+    return None, None
+
+
+def leer_seccion_multi(tipos, contiene=None):
+    """Como leer_seccion pero prueba VARIOS tipos (y un substring opcional `contiene`, p.ej.
+    'whatsapp') en UNA sola pasada por tema — evita re-escanear el tema por cada candidato.
+    Tema PUBLICADO primero, luego BORRADOR. Devuelve (info|None, error)."""
+    _temas, err = listar_temas()
+    if err:
+        return None, err
+    if not _temas:
+        return None, "No hay temas en la tienda."
+    _main = next((t for t in _temas if str(t.get("role")) == "main"), None)
+    _borr = [t for t in _temas if t is not _main and str(t.get("role")) not in ("demo", "archived")]
+    _tset = set(tipos or [])
+    _sub = (str(contiene or "").strip().lower() or None)
+    _primer_err = None
+    for _t in ([_main] if _main else []) + _borr:
+        _info, _e = _seccion_multi_en_tema(_t, _tset, _sub)
+        if _e:
+            _primer_err = _primer_err or _e
+            continue
+        if _info:
+            return _info, None
+    return None, (_primer_err or "No se encontró la sección en ningún tema.")
+
+
 def guardar_seccion_settings(theme_id, asset_key, section_id, settings_patch, backup=True,
                              backup_prefix="seccion", bloques_tipo=None, bloques_items=None) -> tuple:
     """Mezcla `settings_patch` en los settings de la sección indicada del tema (read-modify-
