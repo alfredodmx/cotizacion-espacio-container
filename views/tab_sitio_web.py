@@ -4431,7 +4431,7 @@ _WA_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
   #wapLbl{font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
   @media (max-width:640px){ .wae-grid,.wae-ag-row{grid-template-columns:1fr;} }
 </style></head><body>
-<div class="wae">
+<div class="wae" id="wae-root">
   <div class="wae-left">
     <div class="wae-note">Edita el <b>botón de WhatsApp flotante</b> y su ventana de agentes. La vista previa de la
     derecha se actualiza en vivo. Los cambios se guardan en tu tema de Shopify con <b>Guardar y publicar</b>.</div>
@@ -4603,6 +4603,13 @@ _WA_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
     fire(JSON.stringify({op:'whatsapp', settings:collectSettings(), agents:collectAgents(), agentMedia: await collectAgentMedia()})); }catch(e){} }; }catch(e){}
   D.addEventListener('input', function(){ setDirty(); updatePreview(); });
   D.addEventListener('change', function(){ setDirty(); updatePreview(); });
+  // Auto-ajuste del alto del iframe (crece/encoge con las tarjetas y los agentes).
+  function waResize(){ try{ var el=D.getElementById('wae-root')||D.body; var h=Math.ceil(el.scrollHeight)+8;
+    var fe=W.frameElement; if(!fe) return;
+    if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){ fe.style.setProperty('height', h+'px','important'); } }catch(e){} }
+  W.waResize=waResize;
+  W.setInterval(waResize, 300); [0,150,400,800,1300].forEach(function(t){ W.setTimeout(waResize, t); });
+  if(W.ResizeObserver){ try{ new W.ResizeObserver(waResize).observe(D.getElementById('wae-root')||D.body); }catch(e){} }
   updatePreview();
   W.requestAnimationFrame(updatePreview);          // re-escala con el ancho real ya aplicado
   W.setTimeout(updatePreview, 120);
@@ -4902,5 +4909,6 @@ def _render_whatsapp():
 
     _agents = st.session_state.get("sw_wa_agents") or []
     _form_html = _build_whatsapp_form(_info, _agents)
-    components.html(_form_html, height=max(900, 420 + len(_WA_GROUPS) * 180 + len(_agents) * 150), scrolling=False)
+    # Alto inicial generoso; el script (waResize) lo ajusta exacto al contenido real enseguida.
+    components.html(_form_html, height=max(1000, 520 + len(_WA_GROUPS) * 230 + len(_agents) * 210), scrolling=False)
     components.html(_SW_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)
