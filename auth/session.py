@@ -12,36 +12,110 @@ from auth.roles import get_rol
 SESSION_TIMEOUT = 8 * 3600  # segundos
 
 
-def render_persist_restore() -> None:
-    """(Pantalla de login) Si hay token en localStorage, lo inyecta a ?_sess vía
-    meta-refresh para restaurar la sesión al refrescar. Si el último intento fue
-    inválido (_sess_bad), en cambio BORRA el token de localStorage → rompe cualquier
-    loop de recarga. El login normal (email/clave) NO se ve afectado.
+def _restore_from_token(tok: str, page: str = "") -> bool:
+    """Valida el token firmado del sistema y, si es válido, autentica la sesión (rol/baneo
+    FRESCOS vía service key). Devuelve True si restauró. Mismo criterio que
+    recover_session_from_query_param, pero reutilizable por el PUENTE (sin recargar)."""
+    from auth.system_token import validar_token_sistema
+    from config.supabase import supabase_admin
+    _uid = validar_token_sistema(tok)
+    if not _uid:
+        return False
+    try:
+        _res = supabase_admin.auth.admin.get_user_by_id(_uid)
+        _u = getattr(_res, 'user', None) or (_res if (_res is not None and hasattr(_res, 'email')) else None)
+        _banned = bool(getattr(_u, 'banned_until', None)) if _u else True
+        if _u and not _banned:
+            _meta = _u.user_metadata or {}
+            _rol = get_rol(_u.email, _meta)
+            st.session_state.auth_user     = str(_u.id)
+            st.session_state.auth_email    = _u.email or ""
+            st.session_state.auth_nombre   = _meta.get("nombre", _u.email or "")
+            st.session_state.rol_usuario   = _rol
+            st.session_state.es_supervisor = _rol in ("root", "admin")
+            st.session_state.es_root       = _rol == "root"
+            st.session_state.es_operacion  = _rol == "operacion"
+            st.session_state.modo_admin    = _rol in ("root", "admin")
+            st.session_state['_last_activity'] = time.time()
+            if page:
+                st.session_state["nav_page"] = page   # misma pestaña al refrescar
+            return True
+    except Exception:
+        return False
+    return False
 
-    El meta-refresh se dispara SOLO cuando la página ya terminó de cargar (evento
-    `load` del padre + 300 ms), no de inmediato: lanzar la recarga a mitad de la
-    inicialización de Streamlit provocaba el error intermitente "Tried to use
-    SessionInfo before it was initialized" (típico además en apps de Streamlit
-    Cloud recién despertadas). Esperar a `load` hace la navegación limpia."""
+
+def render_persist_restore() -> None:
+    """(Pantalla de login) Restaura la sesión guardada en localStorage al refrescar.
+
+    CAMINO RÁPIDO (sin recargar): un input OCULTO (`_sess_restore`) + un JS que lee el token
+    de localStorage y lo escribe al input (puente JS→Python, mismo patrón del resto del
+    sistema). Python valida y autentica con un `st.rerun()` EN SITIO → el refresco es UNA
+    sola carga (sin el doble "esqueleto blanco → preloader" que daba el meta-refresh).
+
+    FALLBACK CONFIABLE: si en ~2.2 s el puente NO autenticó (no apareció `#_usr_header_bar`),
+    el mismo JS hace el meta-refresh a `?_sess` de siempre (que `recover_session_from_query_param`
+    procesa tras recargar). Así, en el PEOR caso queda EXACTAMENTE como antes (nunca peor): la
+    sesión siempre se restaura. El login normal (email/clave) NO se ve afectado.
+
+    Loop-safe: `_sess_bad` (intento inválido) BORRA el token de localStorage y no reintenta."""
     import streamlit.components.v1 as _c
     if st.session_state.pop('_sess_bad', False):
         _c.html("<script>try{window.parent.localStorage.removeItem('ec_sess');}catch(e){}</script>", height=0)
         return
+
+    # Input oculto donde el JS deposita el token (sin recargar).
+    st.markdown('<style>.st-key-_sess_restore{position:absolute!important;left:-9999px!important;'
+                'top:-9999px!important;height:0!important;width:0!important;overflow:hidden!important;}</style>',
+                unsafe_allow_html=True)
+    _val = st.text_input("sess", key="_sess_restore", label_visibility="collapsed")
+    if _val and "::" in _val:
+        _body, _nonce = _val.rsplit("::", 1)
+        if _nonce != st.session_state.get('_sess_restore_ts'):
+            st.session_state['_sess_restore_ts'] = _nonce
+            _tok, _sep, _page = _body.partition("||")
+            if _restore_from_token(_tok, _page):
+                st.rerun()                          # autenticado SIN recargar
+            else:
+                st.session_state['_sess_bad'] = True   # token inválido → el próximo run lo borra
+                st.rerun()
+        return   # ya se está procesando el puente (no re-inyectar)
+
+    # Puente JS (tras `load`): lee ec_sess/ec_page de localStorage → escribe al input oculto.
+    # Si en 2.2 s no se autenticó (no hay header), FALLBACK a meta-refresh ?_sess (confiable).
     _c.html(
         "<script>try{"
-        "var W=window.parent, D=W.document, L=D.defaultView.location;"
-        "var t=W.localStorage.getItem('ec_sess');"
-        "if(t && L.search.indexOf('_sess=')===-1){"
-        "  var go=function(){try{"
-        "    if(L.search.indexOf('_sess=')!==-1) return;"          # ya se está restaurando
-        "    var pg=W.localStorage.getItem('ec_page'); var pv=pg?('&p='+encodeURIComponent(pg)):'';"   # conserva la pestaña activa (localStorage)
-        "    var m=D.createElement('meta'); m.httpEquiv='refresh';"
-        "    m.content='0; url='+L.origin+L.pathname+'?_sess='+encodeURIComponent(t)+pv;"
-        "    D.head.appendChild(m);"
-        "  }catch(e){}};"
-        "  if(D.readyState==='complete'){ W.setTimeout(go,300); }"  # página ya cargada
-        "  else { W.addEventListener('load',function(){ W.setTimeout(go,300); }); }"
-        "}"
+        "var W=window.parent, D=W.document;"
+        "if(W._ec_sess_restoring) throw 0;"                       # una sola vez por carga
+        "var tok=W.localStorage.getItem('ec_sess'); if(!tok) throw 0;"
+        "W._ec_sess_restoring=1;"
+        "var fire=function(){try{"
+        "  var inp=D.querySelector('.st-key-_sess_restore input'); if(!inp) return;"
+        "  var pg=W.localStorage.getItem('ec_page')||'';"
+        "  var payload=tok+'||'+pg+'::'+Date.now();"
+        "  var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set;"
+        "  inp.focus({preventScroll:true});"
+        "  setter.call(inp, payload);"
+        "  inp.dispatchEvent(new Event('input',{bubbles:true}));"
+        "  inp.dispatchEvent(new Event('change',{bubbles:true}));"
+        "  inp.dispatchEvent(new KeyboardEvent('keypress',{key:'Enter',keyCode:13,which:13,bubbles:true}));"
+        "  inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));"
+        "  inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));"
+        "  inp.dispatchEvent(new FocusEvent('blur',{bubbles:true}));"
+        "  inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));"
+        "  inp.blur();"
+        "}catch(e){}};"
+        "var fallback=function(){try{"
+        "  if(D.getElementById('_usr_header_bar')) return;"       # el puente ya autenticó
+        "  var L=D.defaultView.location; if(L.search.indexOf('_sess=')!==-1) return;"
+        "  var pg=W.localStorage.getItem('ec_page'); var pv=pg?('&p='+encodeURIComponent(pg)):'';"
+        "  var m=D.createElement('meta'); m.httpEquiv='refresh';"
+        "  m.content='0; url='+L.origin+L.pathname+'?_sess='+encodeURIComponent(tok)+pv;"
+        "  D.head.appendChild(m);"
+        "}catch(e){}};"
+        "var go=function(){ fire(); W.setTimeout(fallback,2200); };"
+        "if(D.readyState==='complete'){ W.setTimeout(go,150); }"
+        "else { W.addEventListener('load',function(){ W.setTimeout(go,150); }); }"
         "}catch(e){}</script>", height=0)
 
 
