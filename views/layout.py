@@ -741,6 +741,18 @@ def render_preloader() -> None:
     # persiste entre reruns sin problema.
     st.markdown("""
 <style>
+/* ── Camuflar la pantalla de carga de Streamlit con el preloader ──
+   Mientras Streamlit muestra su ESQUELETO de carga (recuadros grises, SOLO en la carga
+   inicial de la página — NO en los reruns, que no generan skeleton), pintamos el fondo
+   OSCURO (tono del preloader) y ocultamos los recuadros, así se funde con el preloader en
+   vez de parpadear en blanco. El selector :has(skeleton) deja de aplicar en cuanto la app
+   terminó de cargar (ya no hay skeleton) → la interfaz queda CLARA y los botones INTACTOS
+   (por eso NO se toca el tema/backgroundColor, que sí afectaba a toda la app).
+   SEGURIDAD: se exige `:not(:has(#_usr_header_bar))` → SOLO aplica cuando NO existe el header
+   autenticado (carga inicial / login). Con la app ya montada (header presente), aunque
+   Streamlit mostrara un skeleton de un widget en un rerun, NUNCA se oscurece. */
+[data-testid="stApp"]:has([data-testid="stSkeleton"]):not(:has(#_usr_header_bar)) { background-color: #0f172a !important; }
+[data-testid="stApp"]:has([data-testid="stSkeleton"]):not(:has(#_usr_header_bar)) [data-testid="stSkeleton"] { opacity: 0 !important; }
 @keyframes _ec_pre_pulse {
   0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(91,124,250,0.5)) brightness(1); }
   50%      { transform: scale(1.05); filter: drop-shadow(0 0 40px rgba(139,92,246,0.8)) brightness(1.15); }
