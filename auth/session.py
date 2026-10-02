@@ -34,7 +34,7 @@ def render_persist_restore() -> None:
         "if(t && L.search.indexOf('_sess=')===-1){"
         "  var go=function(){try{"
         "    if(L.search.indexOf('_sess=')!==-1) return;"          # ya se está restaurando
-        "    var pm=L.search.match(/[?&]p=([^&]+)/); var pv=pm?('&p='+pm[1]):'';"   # conserva la pestaña activa
+        "    var pg=W.localStorage.getItem('ec_page'); var pv=pg?('&p='+encodeURIComponent(pg)):'';"   # conserva la pestaña activa (localStorage)
         "    var m=D.createElement('meta'); m.httpEquiv='refresh';"
         "    m.content='0; url='+L.origin+L.pathname+'?_sess='+encodeURIComponent(t)+pv;"
         "    D.head.appendChild(m);"

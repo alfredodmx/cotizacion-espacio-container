@@ -362,18 +362,11 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
     _keys = [it["key"] for it in items]
     _actual = st.session_state.get("nav_page")
     if _actual not in _keys:
-        # Fallback: ?p=<key> en la URL → persistencia de la pestaña al refrescar el navegador.
+        # Fallback: ?p=<key> (lo setea recover_session_from_query_param al restaurar la
+        # sesión con ?_sess, leyendo la pestaña guardada en localStorage).
         _qp = st.query_params.get("p")
         _actual = _qp if _qp in _keys else (_keys[0] if _keys else None)
         st.session_state["nav_page"] = _actual
-    # Mantener la URL en sync con la pestaña activa → al refrescar se restaura la MISMA
-    # pestaña (la preservación a través de ?_sess la hacen session.py: render_persist_restore
-    # + recover_session_from_query_param).
-    try:
-        if _actual and st.query_params.get("p") != _actual:
-            st.query_params["p"] = _actual
-    except Exception:
-        pass
     # El contenido se renderiza SIEMPRE completo (expandido). El colapso es puro
     # CSS (clase html.ec-sbc, gestionada por el JS de layout vía localStorage) →
     # no hay rerun al togglear, así que NO se re-renderiza este footer (evita el
@@ -402,10 +395,6 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
             for it in items:
                 if st.button(it["label"], key=f"nav_{it['key']}", use_container_width=True):
                     st.session_state["nav_page"] = it["key"]
-                    try:
-                        st.query_params["p"] = it["key"]   # refleja la pestaña en la URL
-                    except Exception:
-                        pass
                     st.rerun()
 
         # Sección inferior anclada: código de acceso + toggle
@@ -417,5 +406,16 @@ def render_sidebar(items, rol: str, nombre: str) -> str:
                     st.markdown(f'<div class="ec-sb-code">{_cod_html}</div>', unsafe_allow_html=True)
             if st.button("Ocultar menú", key="_sb_toggle", use_container_width=True):
                 pass
+
+    # Persistir la pestaña activa en localStorage (ec_page) → al refrescar, la restauración
+    # de sesión (?_sess) la lleva de vuelta (ver auth/session.py). Se escribe SOLO cuando
+    # CAMBIA (para no crear un iframe en cada rerun). localStorage es fiable; la query param
+    # en el iframe de Streamlit Cloud NO siempre llega a la URL del navegador.
+    if _actual and st.session_state.get("_nav_written") != _actual:
+        st.session_state["_nav_written"] = _actual
+        import json as _json
+        import streamlit.components.v1 as _c
+        _c.html("<script>try{window.parent.localStorage.setItem('ec_page',"
+                + _json.dumps(_actual) + ");}catch(e){}</script>", height=0)
 
     return st.session_state["nav_page"]
