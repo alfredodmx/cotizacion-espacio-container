@@ -1,7 +1,10 @@
 [theme]
 base = "light"
 primaryColor = "#5b7cfa"
-backgroundColor = "#f0f2f8"
+# Fondo OSCURO a propósito: es lo que ve el esqueleto de carga de Streamlit ANTES de
+# que cargue el CSS de la app (que lo vuelve claro: .stApp/stMain = #f0f2f8 en layout.py).
+# Así la pantalla de carga es oscura y se funde con el preloader, sin parpadeo blanco.
+backgroundColor = "#0f172a"
 secondaryBackgroundColor = "#ffffff"
 textColor = "#1a1d2e"
 

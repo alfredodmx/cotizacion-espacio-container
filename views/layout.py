@@ -329,7 +329,14 @@ section.main {
 
 /* ── Base ── */
 html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif !important; }
-.stApp { background-color: #f0f2f8 !important; }
+/* Fondo de la app CLARO. Va forzado en los contenedores raíz porque el tema
+   (config.toml backgroundColor) se dejó OSCURO a propósito: así el esqueleto de
+   carga de Streamlit (que se pinta ANTES de este CSS) es oscuro y se funde con el
+   preloader en vez de parpadear en blanco. Una vez cargado este CSS, la app vuelve
+   a ser clara por estos overrides. */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] { background-color: #f0f2f8 !important; }
 
 /* ── Inputs ── */
 .stTextInput > div > div > input,
