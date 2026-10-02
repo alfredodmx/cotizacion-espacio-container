@@ -34,8 +34,9 @@ def render_persist_restore() -> None:
         "if(t && L.search.indexOf('_sess=')===-1){"
         "  var go=function(){try{"
         "    if(L.search.indexOf('_sess=')!==-1) return;"          # ya se está restaurando
+        "    var pm=L.search.match(/[?&]p=([^&]+)/); var pv=pm?('&p='+pm[1]):'';"   # conserva la pestaña activa
         "    var m=D.createElement('meta'); m.httpEquiv='refresh';"
-        "    m.content='0; url='+L.origin+L.pathname+'?_sess='+encodeURIComponent(t);"
+        "    m.content='0; url='+L.origin+L.pathname+'?_sess='+encodeURIComponent(t)+pv;"
         "    D.head.appendChild(m);"
         "  }catch(e){}};"
         "  if(D.readyState==='complete'){ W.setTimeout(go,300); }"  # página ya cargada
@@ -190,8 +191,11 @@ def recover_session_from_query_param(supabase_client) -> None:
                 _ok = True
         except Exception:
             _ok = False
+    _p = st.query_params.get("p")           # pestaña activa a restaurar (si venía en la URL)
     st.query_params.clear()
     if _ok:
+        if _p:
+            st.session_state["nav_page"] = _p   # refresca en la MISMA pestaña, no en la 1ª
         st.rerun()
     else:
         st.session_state['_sess_bad'] = True

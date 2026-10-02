@@ -1040,13 +1040,17 @@ html.ec-tab-loading #_usr_header_bar { visibility: visible !important; opacity: 
     W._ec_pre_iv = setInterval(function(){{
       var elapsed = Date.now() - t0, sinceMut = Date.now() - lastMut;
       if (D.getElementById('_usr_header_bar')) authSeen = true;
+      // El formulario de login viejo queda "stale" un instante tras autenticar; si el
+      // preloader se va antes de que Streamlit lo quite, se ve el header nuevo + el login
+      // viejo superpuestos (el parpadeo que reportó el usuario). Esperamos a que NO quede.
+      var loginGone = !D.querySelector('[class*="st-key-login_"]');
       var pct = authSeen ? (92 + 8 * Math.min(sinceMut / T_STABLE, 1)) : (92 * (1 - Math.exp(-elapsed / 1400)));
       if (bar) bar.style.width = pct + '%';
       if (pctEl) pctEl.textContent = Math.round(pct) + '%';
       var idx = Math.min(Math.floor(pct / 25), msgs.length - 1);
       if (msgEl && msgEl.textContent !== msgs[idx]) msgEl.textContent = msgs[idx];
-      // Éxito: la app autenticada apareció y stMain se estabilizó.
-      if (authSeen && elapsed >= T_MIN && sinceMut >= T_STABLE) {{ finish(); return; }}
+      // Éxito: la app autenticada apareció, el login viejo ya no está, y stMain se estabilizó.
+      if (authSeen && loginGone && elapsed >= T_MIN && sinceMut >= T_STABLE) {{ finish(); return; }}
       // Aborto: terminamos en el LOGIN (no hay header) tras el margen → revela el login.
       if (!authSeen && elapsed > FG) {{
         var atLogin = D.querySelector('[class*="st-key-login_"]');
