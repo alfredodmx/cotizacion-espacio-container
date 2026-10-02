@@ -1014,16 +1014,22 @@ def _scope_hint_themes(code) -> str:
 # varios JSON), así que TODAS las llamadas pasan por un throttle global + reintento en 429.
 _LAST_ASSET_CALL = [0.0]
 _ASSET_MIN_INTERVAL = 0.55  # ~1.8 req/s, bajo el tope de 2/s
+# Cache corto de listados ESTRUCTURALES (lista de temas y claves de assets) — reduce las
+# llamadas REST cuando se navega entre sub-pestañas de SITIO WEB. NO cachea el CONTENIDO de
+# los assets (leer_asset) para no servir settings viejos tras guardar.
+_LIST_TTL = 15.0
+_CACHE_TEMAS = {"t": 0.0, "v": None}
+_CACHE_KEYS = {}  # theme_id -> (ts, keys)
 
 
 def _asset_api(method, url, **kwargs) -> tuple:
     """GET/PUT al Asset API respetando el límite de 2 req/s (throttle) y reintentando en
     429 (hasta 6 veces, honrando Retry-After). Devuelve (response|None, error_str|None)."""
-    import time, requests
+    import time, requests, random
     kwargs.setdefault("headers", _headers())
     kwargs.setdefault("timeout", 30)
     _last_err = None
-    for _ in range(6):
+    for _attempt in range(10):
         _elapsed = time.time() - _LAST_ASSET_CALL[0]
         if _elapsed < _ASSET_MIN_INTERVAL:
             time.sleep(_ASSET_MIN_INTERVAL - _elapsed)
@@ -1032,16 +1038,18 @@ def _asset_api(method, url, **kwargs) -> tuple:
         except Exception as e:
             _LAST_ASSET_CALL[0] = time.time()
             _last_err = str(e)
-            time.sleep(0.6)
+            time.sleep(min(0.6 + _attempt * 0.4, 4.0))
             continue
         _LAST_ASSET_CALL[0] = time.time()
         if r.status_code == 429:
+            # El balde de 2 req/s se comparte con TODO el REST de la app (header, productos,
+            # etc.). Esperamos de forma creciente (el balde se recarga a 2/s) y reintentamos.
             _ra = r.headers.get("Retry-After")
             try:
-                _wait = float(_ra) if _ra else 1.0
+                _wait = float(_ra) if _ra else (0.8 + _attempt * 0.5)
             except Exception:
-                _wait = 1.0
-            time.sleep(min(max(_wait, 0.6), 5.0))
+                _wait = 0.8 + _attempt * 0.5
+            time.sleep(min(max(_wait, 0.7), 6.0) + random.uniform(0, 0.25))
             _last_err = f"Shopify 429: {(r.text or '')[:120]}"
             continue
         return r, None
@@ -1052,11 +1060,16 @@ def listar_temas() -> tuple:
     """Temas de la tienda (Asset API). Devuelve (lista, error). Cada uno: {id, name, role}."""
     if not configurado():
         return [], "Sin credenciales de Shopify."
+    import time
+    if _CACHE_TEMAS["v"] is not None and (time.time() - _CACHE_TEMAS["t"]) < _LIST_TTL:
+        return _CACHE_TEMAS["v"], None
     r, err = _asset_api("GET", f"https://{_store()}/admin/api/{_version()}/themes.json", timeout=25)
     if err:
         return [], err
     if r.status_code == 200:
-        return (r.json() or {}).get("themes") or [], None
+        _lst = (r.json() or {}).get("themes") or []
+        _CACHE_TEMAS["v"], _CACHE_TEMAS["t"] = _lst, time.time()
+        return _lst, None
     return [], f"Shopify {r.status_code}: {r.text[:150]}" + _scope_hint_themes(r.status_code)
 
 
@@ -1103,6 +1116,10 @@ def listar_assets_json(theme_id) -> tuple:
     donde pueden vivir las secciones. Devuelve (keys, error)."""
     if not configurado():
         return [], "Sin credenciales de Shopify."
+    import time
+    _c = _CACHE_KEYS.get(theme_id)
+    if _c and (time.time() - _c[0]) < _LIST_TTL:
+        return _c[1], None
     r, err = _asset_api("GET", f"https://{_store()}/admin/api/{_version()}/themes/{theme_id}/assets.json",
                         timeout=30)
     if err:
@@ -1113,6 +1130,7 @@ def listar_assets_json(theme_id) -> tuple:
     _out = [k for k in _keys if k and k.endswith(".json")
             and (k.startswith("templates/") or k.startswith("sections/")
                  or k == "config/settings_data.json")]
+    _CACHE_KEYS[theme_id] = (time.time(), _out)
     return _out, None
 
 
