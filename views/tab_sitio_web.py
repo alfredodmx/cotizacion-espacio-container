@@ -4411,7 +4411,7 @@ _WA_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
   .wae-stage{position:relative;height:560px;border-radius:12px;overflow:hidden;
     background:#dfe6ef url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23dfe6ef'/%3E%3Cpath d='M0 20h40M20 0v40' stroke='%23d4dbe6' stroke-width='1'/%3E%3C/svg%3E");}
   .wae-stage.is-mobile{max-width:300px;margin:0 auto;border:8px solid #0f172a;border-radius:26px;}
-  #wapWrap{position:absolute;bottom:18px;right:18px;display:flex;flex-direction:column;align-items:flex-end;gap:14px;}
+  #wapWrap{position:absolute;bottom:24px;right:24px;display:flex;flex-direction:column;align-items:flex-end;gap:14px;will-change:transform;}
   #wapWrap.left{right:auto;left:18px;align-items:flex-start;}
   #wapPanel{width:300px;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 18px 40px -10px rgba(0,0,0,.35);display:flex;flex-direction:column;}
   #wapHead{padding:18px 16px 14px;text-align:center;}
@@ -4526,8 +4526,15 @@ _WA_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
     agBox.innerHTML = html || '<div style="padding:16px;color:#94a3b8;font-size:12px;text-align:center;">Sin agentes (modo botón simple)</div>';
     if(ph) agBox.style.maxHeight = ph+'px';
     D.getElementById('wapPanel').style.display = html? 'flex':'none';
+    // Escala el mock para que la ventana NUNCA toque los bordes del escenario (deja gutter).
+    var stageEl=D.getElementById('wapStage'); var GUT=24;
+    var availW=(stageEl?stageEl.clientWidth:360)-GUT*2;
+    var sc=Math.min(1, availW/Math.max(pw,1)); if(!(sc>0)) sc=1;
+    wrap.style.transformOrigin = (val('position')==='bottom-left'?'bottom left':'bottom right');
+    wrap.style.transform = 'scale('+sc+')';
   }
   W._waUpdate=updatePreview;
+  W.addEventListener('resize', updatePreview);
 
   // toggle desktop/mobile
   D.getElementById('wapD').addEventListener('click',function(){ MOB=false; this.classList.add('on'); D.getElementById('wapM').classList.remove('on'); D.getElementById('wapStage').classList.remove('is-mobile'); updatePreview(); });
@@ -4597,6 +4604,8 @@ _WA_FORM_TEMPLATE = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
   D.addEventListener('input', function(){ setDirty(); updatePreview(); });
   D.addEventListener('change', function(){ setDirty(); updatePreview(); });
   updatePreview();
+  W.requestAnimationFrame(updatePreview);          // re-escala con el ancho real ya aplicado
+  W.setTimeout(updatePreview, 120);
 })();
 </script></body></html>"""
 
