@@ -107,6 +107,131 @@ def _fetch_users_notif(_cb=''):
         return []
 
 
+# ── Correo de nuevos leads (Shopify): vista previa (réplica del diseño del Flask) ──
+# El correo real lo ARMA Y ENVÍA el servidor de leads (flask-shopify-brevo) leyendo la
+# config de notificaciones_config. Acá solo replicamos el diseño para la vista previa y
+# escribimos la config (destinatarios / asunto / encendido). Si cambias el diseño del
+# correo en el Flask, actualiza también este _lead_email_html para que el preview coincida.
+_LEAD_NAVY = "#182230"
+_LEAD_NARANJA = "#F56E14"
+_LEAD_ASUNTO_DEFAULT = "🔥 Nuevo lead — {formulario} · {nombre}"
+
+_LEAD_SAMPLES = {
+    "Formulario Cotiza": {
+        "nombre": "Alex Álvarez", "email": "alex@ejemplo.com", "whatsapp": "+56 9 1234 5678",
+        "np": {"interés": "Cabaña habitacional 30 m²"},
+    },
+    "Formulario Modelo Prediseñado": {
+        "nombre": "Camila Rojas", "email": "camila@ejemplo.com", "whatsapp": "+56 9 8765 4321",
+        "np": {"modelo": "Cabaña 40ST", "valor": "$24.990.000", "región": "Metropolitana",
+               "plazo": "Planificado (3-6 meses)", "presupuesto": "$25M - $40M",
+               "mensaje": "Quiero terminaciones premium y un loft."},
+    },
+    "Formulario Personalizado": {
+        "nombre": "Diego Fuentes", "email": "diego@ejemplo.com", "whatsapp": "+56 9 5555 1234",
+        "np": {"módulo": "40HC", "puertas y ventanas": "1 puerta + 3 ventanas",
+               "revestimiento": "Siding fibrocemento", "distribución": "2 dormitorios",
+               "presupuesto": "Sobre $40M", "mensaje": "Terreno en pendiente, necesito asesoría."},
+    },
+}
+
+
+def _lead_esc(s):
+    return (str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _lead_campos(formulario, nombre, email, whatsapp, np):
+    """[(etiqueta, valor)] con SOLO los campos del formulario (igual que el Flask)."""
+    f = str(formulario or "").strip().lower()
+    base = [("Nombre", nombre), ("Email", email), ("WhatsApp", whatsapp)]
+
+    def g(*ks):
+        for k in ks:
+            v = str(np.get(k) or "").strip()
+            if v:
+                return v
+        return ""
+    if f == "formulario cotiza":
+        return base + [("¿Qué necesita?", g("interés", "interes"))]
+    if f == "formulario modelo prediseñado":
+        return base + [("Modelo", g("modelo")), ("Valor", g("valor", "precio")),
+                       ("Región", g("región", "region")), ("Plazo", g("plazo")),
+                       ("Presupuesto", g("presupuesto")), ("Mensaje", g("mensaje"))]
+    if f == "formulario personalizado":
+        return base + [("Módulo", g("módulo", "modulo")),
+                       ("Puertas y ventanas", g("puertas y ventanas")),
+                       ("Revestimiento", g("revestimiento")),
+                       ("Distribución", g("distribución", "distribucion")),
+                       ("Presupuesto", g("presupuesto")), ("Mensaje", g("mensaje"))]
+    return base + [(k[:1].upper() + k[1:], v) for k, v in np.items() if k != "formulario"]
+
+
+def _lead_email_html(formulario, nombre, email, whatsapp, np):
+    """HTML del correo (réplica exacta del diseño del Flask) para la vista previa."""
+    import re as _re
+    _form_label = str(formulario or "Sin identificar").upper()
+    _wa = _re.sub(r"[^\d]", "", str(whatsapp or ""))
+    filas = ""
+    for etq, val in _lead_campos(formulario, nombre, email, whatsapp, np):
+        val = str(val or "").strip()
+        if not val and etq not in ("Nombre", "Email", "WhatsApp"):
+            continue
+        if etq == "WhatsApp" and _wa:
+            val_html = (f'<a href="https://wa.me/{_wa}" style="color:{_LEAD_NARANJA};'
+                        f'text-decoration:none;font-weight:700;">{_lead_esc(val)}</a>')
+        elif etq == "Email" and val:
+            val_html = (f'<a href="mailto:{_lead_esc(val)}" style="color:{_LEAD_NARANJA};'
+                        f'text-decoration:none;font-weight:700;">{_lead_esc(val)}</a>')
+        else:
+            val_html = _lead_esc(val or "—")
+        filas += (
+            '<tr>'
+            f'<td style="padding:12px 18px;border-bottom:1px solid #eef1f5;font-size:11px;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:.05em;color:#8a94a6;white-space:nowrap;vertical-align:top;">'
+            f'{_lead_esc(etq)}</td>'
+            f'<td style="padding:12px 18px;border-bottom:1px solid #eef1f5;font-size:15px;line-height:1.5;'
+            f'color:{_LEAD_NAVY};font-weight:600;">{val_html}</td>'
+            '</tr>')
+    _cta = ""
+    if _wa:
+        _cta = (f'<tr><td colspan="2" style="padding:20px 18px 6px;text-align:center;">'
+                f'<a href="https://wa.me/{_wa}" style="display:inline-block;background:#25D366;'
+                f'color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 26px;'
+                f'border-radius:6px;">Responder por WhatsApp</a></td></tr>')
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(24,34,48,.08);">
+        <tr><td style="background:{_LEAD_NAVY};padding:26px 24px;">
+          <span style="display:inline-block;background:rgba(245,110,20,.16);color:{_LEAD_NARANJA};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:6px 12px;border-radius:999px;border:1px solid rgba(245,110,20,.5);">{_lead_esc(_form_label)}</span>
+          <h1 style="margin:14px 0 0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-.01em;">Nuevo lead registrado 🔥</h1>
+          <p style="margin:6px 0 0;color:rgba(255,255,255,.6);font-size:13px;">Desde el sitio web · Espacio Container House</p>
+        </td></tr>
+        <tr><td style="padding:8px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{filas}{_cta}</table>
+        </td></tr>
+        <tr><td style="padding:16px 24px 24px;">
+          <p style="margin:0;color:#9aa4b2;font-size:12px;line-height:1.6;text-align:center;">
+            Este lead ya quedó en el CRM, en la Bandeja. Revísalo y asígnalo a un ejecutivo.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+def _lead_asunto_preview(tpl, formulario, nombre, email, whatsapp):
+    _f = str(formulario or "Sin identificar").upper()
+    out = str(tpl or _LEAD_ASUNTO_DEFAULT)
+    for k, v in (("{formulario}", _f), ("{nombre}", nombre or ""),
+                 ("{email}", email or ""), ("{whatsapp}", whatsapp or "")):
+        out = out.replace(k, v)
+    return out.strip() or f"Nuevo lead — {_f}"
+
+
 # ── CSS de la pestaña ────────────────────────────────────────────────────────
 
 _CSS = """
@@ -519,3 +644,76 @@ def render_tab_notificaciones(supabase, **deps):
             for _mk, _mv in _msgs_nuevos.items():
                 _set_notif_config(_mk, _mv)
             st.toast("Mensajes guardados", icon=":material/check_circle:")
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ── 6. Correo de nuevos leads (Shopify) ──────────────────────────────
+    st.markdown(f'<div class="ntf-sec">{_svg("send", 18, "#5b7cfa", mr=2)}Correo de nuevos leads (Shopify)</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="ntf-hint">{_svg("send", 13, "#94a3b8", mr=4)}Correo que llega por cada lead del sitio, con el diseño según el formulario '
+                '(Cotiza / Prediseñado / Personalizado). Lo envía el servidor de leads leyendo ESTA configuración.</div>',
+                unsafe_allow_html=True)
+
+    _lm_enabled = str(_get_notif_config('lead_mail_enabled', '0')).strip().lower() in ('1', 'true', 'si', 'sí', 'yes', 'on')
+    _lm_to = _get_notif_config('lead_mail_to', '')
+    _lm_asunto = _get_notif_config('lead_mail_asunto', _LEAD_ASUNTO_DEFAULT)
+
+    _en_lead = st.toggle("Enviar el correo de aviso por cada lead nuevo", value=_lm_enabled, key="lead_mail_enabled_tgl")
+
+    # Asunto (uno para todos, con variables)
+    st.markdown(_var_guide(['{formulario}', '{nombre}', '{email}', '{whatsapp}']), unsafe_allow_html=True)
+    _asunto_inp = st.text_input("Asunto del correo", value=_lm_asunto, key="lead_mail_asunto_inp")
+
+    # Destinatarios: usuarios del sistema (multiselect) + otros correos (texto libre)
+    try:
+        _sys_users_lead = _fetch_users_notif()
+    except Exception:
+        _sys_users_lead = []
+    _sys_emails_lead = []
+    for _r in _ROOTS:
+        if _r.strip() and _r.strip().lower() not in _sys_emails_lead:
+            _sys_emails_lead.append(_r.strip().lower())
+    for _u in _sys_users_lead:
+        _e = (_u.get('email') or '').strip().lower()
+        if _e and _e not in _sys_emails_lead:
+            _sys_emails_lead.append(_e)
+    _current_lead = [e.strip().lower() for e in str(_lm_to).replace('\n', ',').replace(';', ',').split(',') if e.strip()]
+    _preselect_lead = [e for e in _current_lead if e in _sys_emails_lead]
+    _extra_lead = [e for e in _current_lead if e not in _sys_emails_lead]
+
+    _cda, _cdb = st.columns(2)
+    with _cda:
+        _sel_lead = st.multiselect("Destinatarios (usuarios del sistema)", options=_sys_emails_lead,
+                                   default=_preselect_lead, key="lead_mail_sel")
+    with _cdb:
+        _extra_txt = st.text_area("Otros correos (uno por línea)", value="\n".join(_extra_lead),
+                                  height=120, key="lead_mail_extra", placeholder="gerencia@empresa.cl")
+
+    _dest_final = []
+    for _e in list(_sel_lead) + [x.strip().lower() for x in _extra_txt.replace(',', '\n').split('\n') if x.strip()]:
+        _e = _e.strip().lower()
+        if _e and _e not in _dest_final:
+            _dest_final.append(_e)
+    st.markdown(f'<div class="ntf-hint">{_svg("users", 13, "#94a3b8", mr=4)}'
+                f'{len(_dest_final)} destinatario(s): {_lead_esc(", ".join(_dest_final)) if _dest_final else "—"}</div>',
+                unsafe_allow_html=True)
+
+    if st.button(":material/save: Guardar correo de leads", key="btn_guardar_lead_mail", type="primary"):
+        _set_notif_config('lead_mail_enabled', '1' if _en_lead else '0')
+        _set_notif_config('lead_mail_to', ",".join(_dest_final))
+        _set_notif_config('lead_mail_asunto', _asunto_inp)
+        st.toast("Correo de leads guardado", icon=":material/check_circle:")
+        st.rerun()
+
+    # Vista previa de los 3 diseños (datos de ejemplo), con el asunto ya resuelto.
+    st.markdown(f'<div class="ntf-hint" style="margin-top:12px">{_svg("eye", 13, "#94a3b8", mr=4)}'
+                'Vista previa de los 3 diseños (datos de ejemplo)</div>', unsafe_allow_html=True)
+    for _li, (_fname, _sample) in enumerate(_LEAD_SAMPLES.items()):
+        with st.expander(f"Diseño — {_fname}", expanded=(_li == 0)):
+            _asunto_prev = _lead_asunto_preview(_asunto_inp, _fname, _sample['nombre'],
+                                                _sample['email'], _sample['whatsapp'])
+            st.markdown(f'<div style="font-size:0.78rem;color:#64748b;margin-bottom:6px;">'
+                        f'<b>Asunto:</b> {_lead_esc(_asunto_prev)}</div>', unsafe_allow_html=True)
+            components.html(
+                _lead_email_html(_fname, _sample['nombre'], _sample['email'],
+                                 _sample['whatsapp'], _sample['np']),
+                height=540, scrolling=True)
