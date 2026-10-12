@@ -2814,23 +2814,29 @@ _SW_REELS_FLOAT_JS = r"""<script>
 
 
 def _advisor_media_html(a):
-    """Media del círculo del asesor: video (autoplay mudo en loop, como en la web), o su
-    imagen de preview, o un placeholder «sin video»."""
+    """Media del círculo del asesor: video (autoplay mudo en loop, como en la web), FOTO, su
+    imagen de preview, o un placeholder «sin foto/video»."""
     _src, _pv = _he(a.get("_src") or ""), _he(a.get("_pv") or "")
+    _img = _he(a.get("_img") or "")
     if _src:
         _pt = (f'poster="{_pv}"' if _pv else "")
         return (f'<video class="avc-vid" autoplay muted loop playsinline preload="metadata" '
                 f'{_pt} src="{_src}"></video>')
+    if _img:
+        return f'<div class="avc-ph" style="background:url(\'{_img}\') center/cover;"></div>'
     if _pv:
         return f'<div class="avc-ph" style="background:url(\'{_pv}\') center/cover;"></div>'
-    return '<div class="avc-ph avc-ph--empty">SIN<br>VIDEO</div>'
+    return '<div class="avc-ph avc-ph--empty">SIN<br>FOTO/VIDEO</div>'
 
 
 def _advisor_card_html(a):
-    """Una tarjeta de asesor del editor HTML: círculo con el video + nombre + cargo, con
-    botones de eliminar, bloquear/mostrar y manija para reordenar."""
-    _x = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
-          'stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>')
+    """Una tarjeta de asesor del editor HTML: círculo con la foto/video + barra visible de
+    acciones (reordenar, bloquear/mostrar, eliminar) + nombre y cargo."""
+    _trash = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+              'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/>'
+              '<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
+              '<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>'
+              '<path d="M10 11v6"/><path d="M14 11v6"/></svg>')
     _grip = ('<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/>'
              '<circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/>'
              '<circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>')
@@ -2841,16 +2847,19 @@ def _advisor_card_html(a):
     _dis = "1" if a.get("disabled") else ""
     return (
         f'<div class="avc{_off}" draggable="false" data-id="{_he(a.get("id") or "")}" '
-        f'data-video="{_he(a.get("video") or "")}" data-newkey="" data-disabled="{_dis}">'
+        f'data-video="{_he(a.get("video") or "")}" data-img="{_he(a.get("image_url") or "")}" '
+        f'data-newkey="" data-disabled="{_dis}">'
         '<div class="avc-circle">'
         f'{_advisor_media_html(a)}'
-        f'<button type="button" class="avc-del" title="Eliminar asesor">{_x}</button>'
-        '<button type="button" class="avc-block" title="Bloquear u ocultar en la web"></button>'
-        f'<span class="avc-grip" title="Arrastrar para ordenar">{_grip}</span>'
         '<span class="avc-badge">Bloqueado</span>'
         '</div>'
+        '<div class="avc-tools">'
+        f'<button type="button" class="avc-tool avc-grip" title="Arrastrar para reordenar">{_grip}</button>'
+        '<button type="button" class="avc-tool avc-block" title="Bloquear u ocultar en la web"></button>'
+        f'<button type="button" class="avc-tool avc-del" title="Eliminar asesor">{_trash}</button>'
+        '</div>'
         '<div class="avc-body">'
-        f'<button type="button" class="avc-change">{_cam}Cambiar video</button>'
+        f'<button type="button" class="avc-change">{_cam}Cambiar foto o video</button>'
         f'<input class="avc-name ed-in" type="text" value="{_he(a.get("name") or "")}" '
         'placeholder="Nombre del asesor">'
         f'<input class="avc-role ed-in" type="text" value="{_he(a.get("role") or "")}" '
@@ -2870,9 +2879,9 @@ def _build_advisors_form(advisors):
     _drop = ('<div class="av-drop" id="av-drop" role="button" tabindex="0" aria-label="Agregar asesor">'
              '<span class="av-drop-plus">' + _add + '</span>'
              '<span class="av-drop-txt">Agregar asesor</span>'
-             '<span class="av-drop-sub">Clic o arrastra un video vertical</span></div>')
-    _tpl = _advisor_card_html({"id": None, "video": "", "name": "", "role": "",
-                               "disabled": False, "_pv": "", "_src": ""})
+             '<span class="av-drop-sub">Clic o arrastra una foto o video</span></div>')
+    _tpl = _advisor_card_html({"id": None, "video": "", "image_url": "", "name": "", "role": "",
+                               "disabled": False, "_pv": "", "_src": "", "_img": ""})
     _html = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
@@ -2891,12 +2900,14 @@ def _build_advisors_form(advisors):
 .avc-ph{display:flex;align-items:center;justify-content:center;text-align:center;color:#64748b;background:#111827;
   font-family:Montserrat,sans-serif;font-weight:800;font-size:.6rem;letter-spacing:.06em;line-height:1.25;}
 .avc-ph--empty{color:#94a3b8;}
-.avc-del,.avc-block,.avc-grip{position:absolute;width:27px;height:27px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;background:rgba(15,23,42,.62);color:#fff;cursor:pointer;border:none;z-index:3;padding:0;}
-.avc-del{top:3px;left:3px;} .avc-block{top:3px;right:3px;} .avc-grip{bottom:3px;right:3px;cursor:grab;}
-.avc-del:hover{background:#dc2626;} .avc-block:hover{background:#2563eb;}
-.avc--off .avc-block{background:#f59e0b;}
-.avc-del svg,.avc-block svg,.avc-grip svg{width:15px;height:15px;}
+.avc-tools{display:flex;justify-content:center;gap:8px;width:100%;margin-top:11px;}
+.avc-tool{width:40px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  background:#fff;border:1.5px solid #e2e8f0;color:#475569;cursor:pointer;padding:0;transition:background .15s,border-color .15s,color .15s;}
+.avc-tool svg{width:17px;height:17px;}
+.avc-grip{cursor:grab;} .avc-grip:hover{border-color:#5b7cfa;color:#2563eb;background:#eef2ff;}
+.avc-block:hover{border-color:#2563eb;color:#2563eb;background:#eef2ff;}
+.avc-del:hover{border-color:#fca5a5;color:#dc2626;background:#fef2f2;}
+.avc--off .avc-block{background:#f59e0b;border-color:#f59e0b;color:#fff;}
 .avc-badge{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;
   background:#b45309;color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:.58rem;letter-spacing:.05em;
   text-transform:uppercase;padding:4px 9px;border-radius:999px;white-space:nowrap;}
@@ -2934,7 +2945,7 @@ def _build_advisors_form(advisors):
 <div class="av-grid" id="av-grid">__CARDS____DROP__</div>
 <div class="av-savebar"><button type="button" id="av-save" class="av-save" disabled>Guardar asesores</button></div>
 <template id="av-tpl">__TPL__</template>
-<input type="file" id="av-file" accept="video/*" style="display:none">
+<input type="file" id="av-file" accept="image/*,video/*" style="display:none">
 </div>
 <script>
 (function(){
@@ -2949,16 +2960,18 @@ function uid(){ return 'n'+Math.random().toString(36).slice(2,10); }
 function fileB64(f){ return new Promise(function(res){ var r=new FileReader();
   r.onload=function(){ try{ res((''+r.result).split(',')[1]||''); }catch(e){ res(''); } };
   r.onerror=function(){ res(''); }; r.readAsDataURL(f); }); }
-function setCardVideo(card, url){ var c=card.querySelector('.avc-circle'); if(!c)return;
-  var btns=c.querySelectorAll('.avc-del,.avc-block,.avc-grip,.avc-badge');
-  c.innerHTML='<video class="avc-vid" autoplay muted loop playsinline src="'+(url+'').replace(/"/g,'&quot;')+'"></video>';
-  [].forEach.call(btns,function(b){ c.appendChild(b); }); }
+function mediaKind(f){ var t=(f&&f.type||''); if(t.indexOf('image')===0)return 'image'; if(t.indexOf('video')===0)return 'video'; return ''; }
+function setCardMedia(card, url, isImage){ var c=card.querySelector('.avc-circle'); if(!c)return;
+  var badge=c.querySelector('.avc-badge');
+  if(isImage){ c.innerHTML='<div class="avc-ph" style="background:url(\''+(url+'').replace(/'/g,'%27')+'\') center/cover;"></div>'; }
+  else { c.innerHTML='<video class="avc-vid" autoplay muted loop playsinline src="'+(url+'').replace(/"/g,'&quot;')+'"></video>'; }
+  if(badge) c.appendChild(badge); }
 function syncBlockIcons(){ [].slice.call(grid.querySelectorAll('.avc')).forEach(function(c){
   var b=c.querySelector('.avc-block'); if(b) b.innerHTML=(c.getAttribute('data-disabled')==='1')?EYEOFF:EYE; }); }
 function collect(){ var out=[]; [].slice.call(grid.querySelectorAll('.avc')).forEach(function(c){
-  out.push({id:c.getAttribute('data-id')||'', video:c.getAttribute('data-video')||'', newkey:c.getAttribute('data-newkey')||'',
-    name:(c.querySelector('.avc-name')||{}).value||'', role:(c.querySelector('.avc-role')||{}).value||'',
-    disabled:c.getAttribute('data-disabled')==='1'}); }); return out; }
+  out.push({id:c.getAttribute('data-id')||'', video:c.getAttribute('data-video')||'', img:c.getAttribute('data-img')||'',
+    newkey:c.getAttribute('data-newkey')||'', name:(c.querySelector('.avc-name')||{}).value||'',
+    role:(c.querySelector('.avc-role')||{}).value||'', disabled:c.getAttribute('data-disabled')==='1'}); }); return out; }
 var _initial=JSON.stringify(collect());
 function dirty(){ return JSON.stringify(collect())!==_initial || Object.keys(newFiles).length>0; }
 function updateSave(){ var d=dirty(); saveBtn.disabled=!d; saveBtn.classList.toggle('is-dirty',d);
@@ -2967,21 +2980,23 @@ function showMsg(t){ if(msg){ msg.textContent=t; msg.style.display='block'; } }
 function hideMsg(){ if(msg) msg.style.display='none'; }
 function addAdvisorFromFile(f){
   if(!f) return;
-  if((f.type||'').indexOf('video')!==0){ showMsg('El archivo debe ser un video.'); return; }
+  var kind=mediaKind(f);
+  if(!kind){ showMsg('El archivo debe ser una foto o un video.'); return; }
   var key=uid(); newFiles[key]=f; var url=URL.createObjectURL(f);
   var node=tpl.content.firstElementChild.cloneNode(true);
-  node.setAttribute('data-id',''); node.setAttribute('data-video',''); node.setAttribute('data-newkey',key);
-  node.setAttribute('data-disabled','');
-  grid.insertBefore(node, dropEl); setCardVideo(node,url); syncBlockIcons();
+  node.setAttribute('data-id',''); node.setAttribute('data-video',''); node.setAttribute('data-img','');
+  node.setAttribute('data-newkey',key); node.setAttribute('data-disabled','');
+  grid.insertBefore(node, dropEl); setCardMedia(node,url,kind==='image'); syncBlockIcons();
   var nm=node.querySelector('.avc-name'); if(nm) nm.focus();
   node.scrollIntoView({block:'nearest'}); hideMsg(); updateSave();
 }
-function changeAdvisorVideo(card, f){
+function changeAdvisorMedia(card, f){
   if(!card || !f) return;
-  if((f.type||'').indexOf('video')!==0){ showMsg('El archivo debe ser un video.'); return; }
+  var kind=mediaKind(f);
+  if(!kind){ showMsg('El archivo debe ser una foto o un video.'); return; }
   var key=uid(); newFiles[key]=f; var url=URL.createObjectURL(f);
   var old=card.getAttribute('data-newkey'); if(old&&newFiles[old]&&old!==key)delete newFiles[old];
-  card.setAttribute('data-newkey',key); setCardVideo(card,url); hideMsg(); updateSave();
+  card.setAttribute('data-newkey',key); setCardMedia(card,url,kind==='image'); hideMsg(); updateSave();
 }
 grid.addEventListener('click', function(e){
   var ch=e.target.closest?e.target.closest('.avc-change'):null;
@@ -2994,7 +3009,7 @@ grid.addEventListener('click', function(e){
 });
 fileIn.addEventListener('change', function(){
   var f=this.files&&this.files[0]; this.value='';
-  if(upMode.op==='change' && upMode.card){ changeAdvisorVideo(upMode.card, f); }
+  if(upMode.op==='change' && upMode.card){ changeAdvisorMedia(upMode.card, f); }
   else { addAdvisorFromFile(f); }
 });
 function pickForAdd(){ upMode={op:'add',card:null}; fileIn.value=''; fileIn.click(); }
@@ -3030,9 +3045,9 @@ async function doSave(){
     saveBtn.disabled=true; saveBtn.classList.remove('is-dirty');
     var nv=[];
     for(i=0;i<keys.length;i++){ var k=keys[i]; saveBtn.textContent='Subiendo '+(i+1)+'/'+keys.length+'…';
-      var bb=await fileB64(newFiles[k]); if(bb) nv.push({key:k, name:newFiles[k].name, mime:(newFiles[k].type||'video/mp4'), b64:bb}); }
+      var bb=await fileB64(newFiles[k]); if(bb) nv.push({key:k, name:newFiles[k].name, mime:(newFiles[k].type||'application/octet-stream'), b64:bb, kind:mediaKind(newFiles[k])||'video'}); }
     saveBtn.textContent='Guardando…';
-    fire(JSON.stringify({advisors:cards, new_videos:nv}));
+    fire(JSON.stringify({advisors:cards, new_media:nv}));
   }catch(e){ saveBtn.textContent='Guardar asesores'; updateSave(); }
 }
 saveBtn.addEventListener('click', doSave);
@@ -3217,8 +3232,8 @@ def _render_reels():
                 _data = None
             if _data is not None:
                 _errs, _refmap = [], {}
-                _nv = _data.get("new_videos") or []
-                _spin = (f"Subiendo {len(_nv)} video(s) y guardando los asesores…" if _nv
+                _nv = _data.get("new_media") or _data.get("new_videos") or []
+                _spin = (f"Subiendo {len(_nv)} archivo(s) y guardando los asesores…" if _nv
                          else "Guardando los asesores…")
                 with st.spinner(_spin):
                     for _v in _nv:
@@ -3228,20 +3243,40 @@ def _render_reels():
                             _vb = b""
                         if not _vb:
                             continue
-                        _ref, _pv3, _src3, _e = _shop.subir_video_archivo(
-                            _v.get("name") or "video.mp4", _v.get("mime") or "video/mp4", _vb)
-                        if _e or not _ref:
-                            _errs.append(_e or "No se pudo subir un video.")
+                        if _v.get("kind") == "image":
+                            _gid, _purl, _e = _shop.subir_imagen_archivo(
+                                _v.get("name") or "foto.jpg", _v.get("mime") or "image/jpeg", _vb)
+                            _url = _purl or ""
+                            if not _url and _gid:
+                                _m, _ = _shop.resolver_imagenes([_gid])
+                                _url = (_m or {}).get(_gid) or ""
+                            if _e or not _url:
+                                _errs.append(_e or "La foto se subió pero Shopify aún no entrega su "
+                                             "URL; intenta guardar de nuevo en unos segundos.")
+                            else:
+                                _refmap[_v.get("key")] = {"kind": "image", "ref": _url}
                         else:
-                            _refmap[_v.get("key")] = _ref
+                            _ref, _pv3, _src3, _e = _shop.subir_video_archivo(
+                                _v.get("name") or "video.mp4", _v.get("mime") or "video/mp4", _vb)
+                            if _e or not _ref:
+                                _errs.append(_e or "No se pudo subir un video.")
+                            else:
+                                _refmap[_v.get("key")] = {"kind": "video", "ref": _ref}
                     _advs_final = []
                     for _c in (_data.get("advisors") or []):
-                        _vid = _refmap.get(_c.get("newkey")) if _c.get("newkey") else _c.get("video")
+                        _up = _refmap.get(_c.get("newkey")) if _c.get("newkey") else None
+                        if _up:
+                            _vid = _up["ref"] if _up["kind"] == "video" else ""
+                            _img = _up["ref"] if _up["kind"] == "image" else ""
+                        else:
+                            # sin cambio de media (o subida fallida): conserva lo que ya tenía
+                            _vid, _img = (_c.get("video") or ""), (_c.get("img") or "")
                         _nm = (_c.get("name") or "").strip()
-                        if not _c.get("id") and not _vid and not _nm:
-                            continue   # asesor nuevo sin video ni nombre → se ignora
+                        if not _c.get("id") and not _vid and not _img and not _nm:
+                            continue   # asesor nuevo sin foto/video ni nombre → se ignora
                         _advs_final.append({"id": _c.get("id") or None, "video": _vid,
-                                            "name": _c.get("name") or "", "role": _c.get("role") or "",
+                                            "image_url": _img, "name": _c.get("name") or "",
+                                            "role": _c.get("role") or "",
                                             "disabled": bool(_c.get("disabled"))})
                     _ok, _serr, _bk = _shop.guardar_advisors(
                         _info.get("theme_id"), _info.get("asset_key"), _info.get("section_id"),
@@ -3258,10 +3293,12 @@ def _render_reels():
     _adv_work = []
     for _a in _advisors:
         _rv = _vids.get(str(_a.get("video"))) or {}
+        _img = _a.get("image_url") or ""
         _adv_work.append({"id": _a.get("id"), "name": _a.get("name") or "",
                           "role": _a.get("role") or "", "video": _a.get("video"),
-                          "disabled": bool(_a.get("disabled")),
-                          "_pv": _rv.get("preview_url") or "", "_src": _rv.get("src") or ""})
+                          "image_url": _img, "disabled": bool(_a.get("disabled")),
+                          "_img": _img, "_pv": _rv.get("preview_url") or "",
+                          "_src": _rv.get("src") or ""})
     _adv_html, _adv_h = _build_advisors_form(_adv_work)
     components.html(_adv_html, height=int(_adv_h), scrolling=False)
 

@@ -1231,6 +1231,8 @@ def _reels_en_tema(tema) -> tuple:
         elif _b.get("type") in _ADV_TYPES:
             _advisors.append({"id": _bid, "name": _st.get("name") or "",
                               "role": _st.get("role") or "", "video": _st.get("video"),
+                              "image_url": _st.get("image_url") or "",
+                              "image": _st.get("image") or "",
                               "disabled": bool(_b.get("disabled"))})
     return ({"theme_id": _tid, "theme_name": tema.get("name") or "",
              "theme_role": str(tema.get("role") or ""), "asset_key": _key,
@@ -1473,7 +1475,8 @@ def guardar_advisors(theme_id, asset_key, section_id, advisors, advisor_type="ad
                      backup=True) -> tuple:
     """Reescribe los bloques de ASESOR (círculos) de la sección de reels en el asset del tema
     (read-modify-write con respaldo). `advisors` es la lista FINAL en ORDEN: cada uno
-    {id?, name, role, video, disabled}; los que no traen 'id' se CREAN, los que faltan respecto
+    {id?, name, role, video, image_url, disabled} (el círculo usa video O foto: uno va vacío);
+    los que no traen 'id' se CREAN, los que faltan respecto
     al tema se ELIMINAN, el ORDEN de la lista fija el orden de los círculos (y por tanto del
     filtro por asesor) y 'disabled'=True BLOQUEA/oculta al asesor en la web SIN borrarlo
     (Shopify excluye los bloques disabled de section.blocks → no se renderizan). Conserva
@@ -1526,10 +1529,11 @@ def guardar_advisors(theme_id, asset_key, section_id, advisors, advisor_type="ad
         else:
             _bid = "advisor_" + uuid.uuid4().hex[:12]
             _blk, _stt, _btype = {}, {}, _atype
-        _vid = _a.get("video")
-        if _vid in (None, ""):
-            _vid = _stt.get("video", "")                      # mantiene el video actual si no cambió
-        _stt["video"] = _vid
+        # El sistema SIEMPRE envía el valor final de video e image_url (uno vacío, el otro con la
+        # media elegida), así que se escriben directo — sin fallback al valor previo, para que
+        # cambiar de video a foto (o viceversa) realmente limpie el campo que ya no se usa.
+        _stt["video"] = _a.get("video", "") or ""
+        _stt["image_url"] = _a.get("image_url", "") or ""
         _stt["name"] = _a.get("name", "") or ""
         _stt["role"] = _a.get("role", "") or ""
         _blk["type"] = _btype
