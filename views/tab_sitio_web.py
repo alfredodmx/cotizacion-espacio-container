@@ -2544,7 +2544,7 @@ _SW_REELS_CSS = """<style>
 def _reels_clear_state():
     for _k in ("sw_reels", "sw_reels_err", "sw_reels_vids", "sw_reels_work",
                "sw_reels_workkey", "sw_reels_base", "sw_reels_files", "sw_reels_prods",
-               "sw_reels_pub", "sw_reel_edit_k"):
+               "sw_reels_pub", "sw_reel_edit_k", "sw_media_vids", "sw_media_imgs"):
         st.session_state.pop(_k, None)
 
 
@@ -2614,22 +2614,27 @@ def _reel_card_html(r, prod_opts):
         '</div></div>')
 
 
-def _build_reels_form(work, prod_opts, adv_names):
+def _build_reels_form(work, prod_opts, adv_names, media_videos=None):
     """Editor HTML de los reels (diseño como el editor de productos): tarjetas con video
-    reproducible, eliminar, arrastrar para ordenar, subir/cambiar video DESDE EL PC (igual que
-    las fotos/videos de productos) y producto vinculado. El guardado va por el puente
+    reproducible, eliminar, arrastrar para ordenar, ELEGIR un video ya subido a Shopify (evita
+    duplicados) o subir uno DESDE EL PC, y producto vinculado. El guardado va por el puente
     sw_reelscmd; los videos nuevos van en base64 (como en productos). Devuelve (html, alto)."""
     _add = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
             'stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>')
     _cards = "".join(_reel_card_html(r, prod_opts) for r in work)
     # Tarjeta-dropzone (siempre al final de la grilla): clic o arrastrar y soltar un video.
-    _drop = ('<div class="rl-drop" id="rl-drop" role="button" tabindex="0" aria-label="Subir reel">'
+    _drop = ('<div class="rl-drop" id="rl-drop" role="button" tabindex="0" aria-label="Agregar reel">'
              '<span class="rl-drop-plus">' + _add + '</span>'
-             '<span class="rl-drop-txt">Subir reel</span>'
-             '<span class="rl-drop-sub">Haz clic o arrastra un video aquí</span></div>')
+             '<span class="rl-drop-txt">Agregar reel</span>'
+             '<span class="rl-drop-sub">Elegir de Shopify o subir del PC</span></div>')
     _tpl = _reel_card_html({"id": None, "video": "", "caption": "", "advisor_name": "",
                             "linked_product": "", "_pv": "", "_src": ""}, prod_opts)
     _advs = "".join(f'<option value="{_he(n)}">' for n in sorted({a for a in adv_names if a}))
+    _rgal = "".join(_media_gitem_html("video", v.get("ref", ""), v.get("preview_url", ""),
+                                      v.get("src", ""), v.get("filename", ""))
+                    for v in (media_videos or []))
+    if not _rgal:
+        _rgal = '<p class="mg-empty">No hay videos subidos a Shopify todavía.</p>'
     _html = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
@@ -2674,10 +2679,50 @@ def _build_reels_form(work, prod_opts, adv_names):
 .rl-drop-txt{font-family:Montserrat,sans-serif;font-weight:800;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;}
 .rl-drop-sub{font-size:.68rem;color:#94a3b8;font-weight:600;line-height:1.3;}
 .rl-drop.is-over .rl-drop-sub{color:#2563eb;}
+/* ---- Selector de video existente de Shopify ---- */
+.mg-modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
+  background:rgba(15,23,42,.55);padding:18px;}
+.mg-modal.is-open{display:flex;}
+.mg-box{background:#fff;border-radius:16px;width:100%;max-width:760px;max-height:86vh;display:flex;
+  flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(15,23,42,.35);}
+.mg-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid #eef1f6;}
+.mg-head b{font-family:Montserrat,sans-serif;font-size:.82rem;letter-spacing:.03em;color:#0f172a;}
+.mg-x{width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;
+  cursor:pointer;font-size:1.1rem;line-height:1;display:flex;align-items:center;justify-content:center;}
+.mg-x:hover{background:#fef2f2;border-color:#fca5a5;color:#dc2626;}
+.mg-top{padding:13px 18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;border-bottom:1px solid #eef1f6;}
+.mg-up{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border:none;border-radius:9px;padding:9px 15px;
+  font-family:'Plus Jakarta Sans';font-weight:700;font-size:.78rem;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.mg-up:hover{filter:brightness(1.07);}
+.mg-search{flex:1;min-width:140px;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;font-size:.82rem;
+  font-family:inherit;background:#f8fafc;outline:none;color:#0f172a;}
+.mg-search:focus{border-color:#5b7cfa;background:#fff;}
+.mg-galwrap{overflow-y:auto;padding:16px 18px;}
+.mg-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px;}
+.mg-gal[hidden]{display:none;}
+.mg-item{background:#fff;border:1px solid #e8ebf3;border-radius:11px;padding:6px;cursor:pointer;display:flex;
+  flex-direction:column;gap:5px;transition:border-color .15s,box-shadow .15s,transform .1s;}
+.mg-item:hover{border-color:#5b7cfa;box-shadow:0 6px 16px rgba(37,99,235,.18);}
+.mg-item:active{transform:scale(.97);}
+.mg-thumb{aspect-ratio:1/1;border-radius:8px;background:#0f172a;background-size:cover;background-position:center;
+  display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.65);}
+.mg-thumb svg{width:26px;height:26px;}
+.mg-fn{font-size:.62rem;color:#64748b;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mg-empty{grid-column:1/-1;color:#94a3b8;font-size:.82rem;padding:26px;text-align:center;}
 </style></head><body><div id="rl-root">
 <div id="rl-msg" class="rl-msg"></div>
 <div class="rl-grid" id="rl-grid">__CARDS____DROP__</div>
 <datalist id="rl-advs">__ADVS__</datalist>
+<div class="mg-modal" id="mg-modal">
+  <div class="mg-box">
+    <div class="mg-head"><b>Elegir un video de Shopify</b><button type="button" class="mg-x" id="mg-x" aria-label="Cerrar">&times;</button></div>
+    <div class="mg-top">
+      <button type="button" class="mg-up" id="mg-up">__ADDICON__ Subir del PC</button>
+      <input type="text" class="mg-search" id="mg-search" placeholder="Buscar por nombre…">
+    </div>
+    <div class="mg-galwrap"><div class="mg-gal" id="mg-gal-video">__RGAL__</div></div>
+  </div>
+</div>
 <template id="rl-tpl">__TPL__</template>
 <input type="file" id="rl-file" accept="video/*" style="display:none">
 </div>
@@ -2723,7 +2768,7 @@ function changeReelVideo(card, f){
 }
 grid.addEventListener('click', function(e){
   var ch=e.target.closest?e.target.closest('.rlc-change'):null;
-  if(ch){ upMode={op:'change',card:ch.closest('.rlc')}; fileIn.value=''; fileIn.click(); return; }
+  if(ch){ openMediaModal('change', ch.closest('.rlc')); return; }
   var dl=e.target.closest?e.target.closest('.rlc-del'):null;
   if(dl){ var c=dl.closest('.rlc'); var nk=c.getAttribute('data-newkey'); if(nk&&newFiles[nk])delete newFiles[nk]; c.remove(); setDirty(); }
 });
@@ -2732,8 +2777,37 @@ fileIn.addEventListener('change', function(){
   if(upMode.op==='change' && upMode.card){ changeReelVideo(upMode.card, f); }
   else { addReelFromFile(f); }
 });
-/* Dropzone (tarjeta prepicada al final): clic para elegir, o arrastrar y soltar un video */
-function pickForAdd(){ upMode={op:'add',card:null}; fileIn.value=''; fileIn.click(); }
+/* ---- Selector de video existente de Shopify (o subir del PC) ---- */
+var mgModal=doc.getElementById('mg-modal'), mgSearch=doc.getElementById('mg-search');
+var mgTarget={mode:'',card:null};
+function filterGallery(q){ q=(q||'').toLowerCase();
+  [].slice.call(doc.querySelectorAll('.mg-item')).forEach(function(it){ var fn=(it.getAttribute('data-fn')||'').toLowerCase(); it.style.display=(!q||fn.indexOf(q)!==-1)?'':'none'; }); }
+function openMediaModal(mode, card){ mgTarget={mode:mode,card:card}; mgSearch.value=''; filterGallery(''); mgModal.classList.add('is-open'); setTimeout(function(){ try{mgSearch.focus();}catch(e){} },30); }
+function closeMediaModal(){ mgModal.classList.remove('is-open'); }
+doc.getElementById('mg-x').addEventListener('click', closeMediaModal);
+mgModal.addEventListener('click', function(e){ if(e.target===mgModal) closeMediaModal(); });
+mgSearch.addEventListener('input', function(){ filterGallery(mgSearch.value); });
+doc.getElementById('mg-up').addEventListener('click', function(){ upMode={op:(mgTarget.mode==='change'?'change':'add'), card:mgTarget.card}; closeMediaModal(); fileIn.value=''; fileIn.click(); });
+function setReelMedia(card, src, prev){ var w=card.querySelector('.rlc-vidwrap'); if(!w) return;
+  if(src){ w.innerHTML='<video preload="metadata" playsinline controls src="'+(src+'').replace(/"/g,'&quot;')+'"></video>'; }
+  else if(prev){ w.innerHTML='<div class="rlc-ph" style="background:url(\''+(prev+'').replace(/'/g,'%27')+'\') center/cover;"></div>'; }
+  else { w.innerHTML='<div class="rlc-ph">VIDEO ELEGIDO<small>se verá al guardar</small></div>'; } }
+function applyReelExisting(card, ref, src, prev){
+  var old=card.getAttribute('data-newkey'); if(old&&newFiles[old])delete newFiles[old];
+  card.setAttribute('data-newkey',''); card.setAttribute('data-video',ref); setReelMedia(card, src, prev); }
+function addReelFromExisting(ref, src, prev){
+  var node=tpl.content.firstElementChild.cloneNode(true);
+  node.setAttribute('data-id',''); node.setAttribute('data-newkey',''); node.setAttribute('data-video',ref);
+  grid.insertBefore(node, dropEl); setReelMedia(node, src, prev); node.scrollIntoView({block:'nearest'}); }
+doc.querySelector('.mg-galwrap').addEventListener('click', function(e){
+  var it=e.target.closest?e.target.closest('.mg-item'):null; if(!it) return;
+  var ref=it.getAttribute('data-ref'), src=it.getAttribute('data-src'), prev=it.getAttribute('data-prev');
+  if(mgTarget.mode==='change' && mgTarget.card){ applyReelExisting(mgTarget.card, ref, src, prev); }
+  else { addReelFromExisting(ref, src, prev); }
+  closeMediaModal(); hideMsg(); setDirty();
+});
+/* Dropzone (tarjeta prepicada al final): clic abre el selector; arrastrar/soltar sube directo */
+function pickForAdd(){ openMediaModal('add', null); }
 dropEl.addEventListener('click', pickForAdd);
 dropEl.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pickForAdd(); } });
 ['dragenter','dragover'].forEach(function(ev){ dropEl.addEventListener(ev, function(e){ if(dragEl) return; e.preventDefault(); e.stopPropagation(); if(e.dataTransfer)e.dataTransfer.dropEffect='copy'; dropEl.classList.add('is-over'); }); });
@@ -2778,7 +2852,8 @@ setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,
 })();
 </script></body></html>"""
     _html = (_html.replace("__CARDS__", _cards).replace("__DROP__", _drop)
-             .replace("__TPL__", _tpl).replace("__ADVS__", _advs))
+             .replace("__TPL__", _tpl).replace("__ADVS__", _advs)
+             .replace("__RGAL__", _rgal).replace("__ADDICON__", _add))
     _n = len(work) + 1   # +1 por la tarjeta-dropzone (siempre al final)
     _rows = (_n + 2) // 3
     return _html, 120 + _rows * 620
@@ -2867,11 +2942,23 @@ def _advisor_card_html(a):
         '</div></div>')
 
 
-def _build_advisors_form(advisors):
+def _media_gitem_html(kind, ref, prev, src, fn):
+    """Una miniatura del selector de media existente de Shopify (video o foto)."""
+    _style = f"background-image:url('{_he(prev)}');" if prev else ""
+    _play = ('<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'
+             if (kind == "video" and not prev) else "")
+    return (f'<button type="button" class="mg-item" data-kind="{kind}" data-ref="{_he(ref)}" '
+            f'data-src="{_he(src or "")}" data-prev="{_he(prev or "")}" data-fn="{_he(fn or "")}">'
+            f'<span class="mg-thumb" style="{_style}">{_play}</span>'
+            f'<span class="mg-fn">{_he(fn or "")}</span></button>')
+
+
+def _build_advisors_form(advisors, media_videos=None, media_images=None):
     """Editor HTML de los asesores (círculos) de la sección «Reels por asesor»: agregar, editar
-    (nombre/cargo/video), eliminar, bloquear/mostrar y reordenar — tal como en el editor de
-    Shopify, pero desde el sistema. El guardado va por el puente sw_advcmd (videos nuevos en
-    base64). El botón «Guardar asesores» vive DENTRO del iframe para no chocar con el flotante
+    (nombre/cargo/foto o video), eliminar, bloquear/mostrar y reordenar — tal como en el editor
+    de Shopify, pero desde el sistema. Al cambiar/agregar media se puede ELEGIR un archivo ya
+    subido a Shopify (evita duplicados) o SUBIR uno del PC. El guardado va por el puente
+    sw_advcmd. El botón «Guardar asesores» vive DENTRO del iframe para no chocar con el flotante
     de reels. Devuelve (html, alto)."""
     _add = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
             'stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>')
@@ -2879,9 +2966,20 @@ def _build_advisors_form(advisors):
     _drop = ('<div class="av-drop" id="av-drop" role="button" tabindex="0" aria-label="Agregar asesor">'
              '<span class="av-drop-plus">' + _add + '</span>'
              '<span class="av-drop-txt">Agregar asesor</span>'
-             '<span class="av-drop-sub">Clic o arrastra una foto o video</span></div>')
+             '<span class="av-drop-sub">Elegir de Shopify o subir del PC</span></div>')
     _tpl = _advisor_card_html({"id": None, "video": "", "image_url": "", "name": "", "role": "",
                                "disabled": False, "_pv": "", "_src": "", "_img": ""})
+    _gal_v = "".join(_media_gitem_html("video", v.get("ref", ""), v.get("preview_url", ""),
+                                       v.get("src", ""), v.get("filename", ""))
+                     for v in (media_videos or []))
+    _gal_i = "".join(_media_gitem_html("image", i.get("url", ""),
+                                       i.get("preview_url", "") or i.get("url", ""), "",
+                                       i.get("filename", ""))
+                     for i in (media_images or []))
+    if not _gal_v:
+        _gal_v = '<p class="mg-empty">No hay videos subidos a Shopify todavía.</p>'
+    if not _gal_i:
+        _gal_i = '<p class="mg-empty">No hay fotos subidas a Shopify todavía.</p>'
     _html = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
@@ -2940,10 +3038,61 @@ def _build_advisors_form(advisors):
   box-shadow:0 6px 16px rgba(15,23,42,.14);transition:background .18s,box-shadow .18s,transform .1s;}
 .av-save.is-dirty{background:linear-gradient(135deg,#5b7cfa,#2563eb);cursor:pointer;box-shadow:0 12px 30px rgba(37,99,235,.40);}
 .av-save:active.is-dirty{transform:translateY(1px);}
+/* ---- Selector de media existente de Shopify ---- */
+.mg-modal{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
+  background:rgba(15,23,42,.55);padding:18px;}
+.mg-modal.is-open{display:flex;}
+.mg-box{background:#fff;border-radius:16px;width:100%;max-width:760px;max-height:86vh;display:flex;
+  flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(15,23,42,.35);}
+.mg-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid #eef1f6;}
+.mg-head b{font-family:Montserrat,sans-serif;font-size:.82rem;letter-spacing:.03em;color:#0f172a;}
+.mg-x{width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;
+  cursor:pointer;font-size:1.1rem;line-height:1;display:flex;align-items:center;justify-content:center;}
+.mg-x:hover{background:#fef2f2;border-color:#fca5a5;color:#dc2626;}
+.mg-top{padding:13px 18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;border-bottom:1px solid #eef1f6;}
+.mg-up{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border:none;border-radius:9px;padding:9px 15px;
+  font-family:'Plus Jakarta Sans';font-weight:700;font-size:.78rem;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.mg-up:hover{filter:brightness(1.07);}
+.mg-tabs{display:flex;gap:6px;}
+.mg-tab{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:7px 12px;
+  font-family:'Plus Jakarta Sans';font-weight:700;font-size:.74rem;cursor:pointer;}
+.mg-tab.on{background:#eef2ff;color:#2563eb;border-color:#c7d2fe;}
+.mg-search{flex:1;min-width:140px;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 11px;font-size:.82rem;
+  font-family:inherit;background:#f8fafc;outline:none;color:#0f172a;}
+.mg-search:focus{border-color:#5b7cfa;background:#fff;}
+.mg-galwrap{overflow-y:auto;padding:16px 18px;}
+.mg-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px;}
+.mg-gal[hidden]{display:none;}
+.mg-item{background:#fff;border:1px solid #e8ebf3;border-radius:11px;padding:6px;cursor:pointer;display:flex;
+  flex-direction:column;gap:5px;transition:border-color .15s,box-shadow .15s,transform .1s;}
+.mg-item:hover{border-color:#5b7cfa;box-shadow:0 6px 16px rgba(37,99,235,.18);}
+.mg-item:active{transform:scale(.97);}
+.mg-thumb{aspect-ratio:1/1;border-radius:8px;background:#0f172a;background-size:cover;background-position:center;
+  display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.65);}
+.mg-thumb svg{width:26px;height:26px;}
+.mg-fn{font-size:.62rem;color:#64748b;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mg-empty{grid-column:1/-1;color:#94a3b8;font-size:.82rem;padding:26px;text-align:center;}
 </style></head><body><div id="av-root">
 <div id="av-msg" class="av-msg"></div>
 <div class="av-grid" id="av-grid">__CARDS____DROP__</div>
 <div class="av-savebar"><button type="button" id="av-save" class="av-save" disabled>Guardar asesores</button></div>
+<div class="mg-modal" id="mg-modal">
+  <div class="mg-box">
+    <div class="mg-head"><b>Elegir foto o video</b><button type="button" class="mg-x" id="mg-x" aria-label="Cerrar">&times;</button></div>
+    <div class="mg-top">
+      <button type="button" class="mg-up" id="mg-up">__ADDICON__ Subir del PC</button>
+      <div class="mg-tabs">
+        <button type="button" class="mg-tab on" data-mgtab="video">Videos de Shopify</button>
+        <button type="button" class="mg-tab" data-mgtab="image">Fotos de Shopify</button>
+      </div>
+      <input type="text" class="mg-search" id="mg-search" placeholder="Buscar por nombre…">
+    </div>
+    <div class="mg-galwrap">
+      <div class="mg-gal" id="mg-gal-video">__GAL_V__</div>
+      <div class="mg-gal" id="mg-gal-image" hidden>__GAL_I__</div>
+    </div>
+  </div>
+</div>
 <template id="av-tpl">__TPL__</template>
 <input type="file" id="av-file" accept="image/*,video/*" style="display:none">
 </div>
@@ -3000,7 +3149,7 @@ function changeAdvisorMedia(card, f){
 }
 grid.addEventListener('click', function(e){
   var ch=e.target.closest?e.target.closest('.avc-change'):null;
-  if(ch){ upMode={op:'change',card:ch.closest('.avc')}; fileIn.value=''; fileIn.click(); return; }
+  if(ch){ openMediaModal('change', ch.closest('.avc')); return; }
   var bl=e.target.closest?e.target.closest('.avc-block'):null;
   if(bl){ var cb=bl.closest('.avc'); var off=cb.getAttribute('data-disabled')==='1';
     cb.setAttribute('data-disabled',off?'':'1'); cb.classList.toggle('avc--off',!off); syncBlockIcons(); updateSave(); return; }
@@ -3012,13 +3161,50 @@ fileIn.addEventListener('change', function(){
   if(upMode.op==='change' && upMode.card){ changeAdvisorMedia(upMode.card, f); }
   else { addAdvisorFromFile(f); }
 });
-function pickForAdd(){ upMode={op:'add',card:null}; fileIn.value=''; fileIn.click(); }
+function pickForAdd(){ openMediaModal('add', null); }
 dropEl.addEventListener('click', pickForAdd);
 dropEl.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pickForAdd(); } });
 ['dragenter','dragover'].forEach(function(ev){ dropEl.addEventListener(ev, function(e){ if(dragEl) return; e.preventDefault(); e.stopPropagation(); if(e.dataTransfer)e.dataTransfer.dropEffect='copy'; dropEl.classList.add('is-over'); }); });
 ['dragleave','dragend'].forEach(function(ev){ dropEl.addEventListener(ev, function(e){ if(dragEl) return; e.stopPropagation(); dropEl.classList.remove('is-over'); }); });
 dropEl.addEventListener('drop', function(e){ if(dragEl) return; e.preventDefault(); e.stopPropagation(); dropEl.classList.remove('is-over');
   var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) addAdvisorFromFile(f); });
+/* ---- Selector de media existente de Shopify (o subir del PC) ---- */
+var mgModal=doc.getElementById('mg-modal'), mgSearch=doc.getElementById('mg-search');
+var mgTarget={mode:'',card:null};
+function setMgTab(tab){ [].slice.call(doc.querySelectorAll('.mg-tab')).forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-mgtab')===tab); });
+  doc.getElementById('mg-gal-video').hidden=(tab!=='video'); doc.getElementById('mg-gal-image').hidden=(tab!=='image'); }
+function filterGallery(q){ q=(q||'').toLowerCase();
+  [].slice.call(doc.querySelectorAll('.mg-item')).forEach(function(it){ var fn=(it.getAttribute('data-fn')||'').toLowerCase(); it.style.display=(!q||fn.indexOf(q)!==-1)?'':'none'; }); }
+function openMediaModal(mode, card){ mgTarget={mode:mode,card:card}; mgSearch.value=''; filterGallery(''); setMgTab('video'); mgModal.classList.add('is-open'); setTimeout(function(){ try{mgSearch.focus();}catch(e){} },30); }
+function closeMediaModal(){ mgModal.classList.remove('is-open'); }
+doc.getElementById('mg-x').addEventListener('click', closeMediaModal);
+mgModal.addEventListener('click', function(e){ if(e.target===mgModal) closeMediaModal(); });
+[].slice.call(doc.querySelectorAll('.mg-tab')).forEach(function(b){ b.addEventListener('click', function(){ setMgTab(b.getAttribute('data-mgtab')); }); });
+mgSearch.addEventListener('input', function(){ filterGallery(mgSearch.value); });
+doc.getElementById('mg-up').addEventListener('click', function(){ upMode={op:(mgTarget.mode==='change'?'change':'add'), card:mgTarget.card}; closeMediaModal(); fileIn.value=''; fileIn.click(); });
+function applyExistingToCard(card, kind, ref, src, prev){
+  var old=card.getAttribute('data-newkey'); if(old&&newFiles[old]){ delete newFiles[old]; }
+  card.setAttribute('data-newkey','');
+  if(kind==='image'){ card.setAttribute('data-img',ref); card.setAttribute('data-video',''); setCardMedia(card, prev||ref, true); }
+  else { card.setAttribute('data-video',ref); card.setAttribute('data-img',''); if(src){ setCardMedia(card,src,false); } else if(prev){ setCardMedia(card,prev,true); } }
+}
+function addAdvisorFromExisting(kind, ref, src, prev){
+  var node=tpl.content.firstElementChild.cloneNode(true);
+  node.setAttribute('data-id',''); node.setAttribute('data-video',''); node.setAttribute('data-img','');
+  node.setAttribute('data-newkey',''); node.setAttribute('data-disabled','');
+  grid.insertBefore(node, dropEl);
+  applyExistingToCard(node, kind, ref, src, prev);
+  syncBlockIcons(); var nm=node.querySelector('.avc-name'); if(nm) nm.focus();
+  node.scrollIntoView({block:'nearest'});
+}
+doc.querySelector('.mg-galwrap').addEventListener('click', function(e){
+  var it=e.target.closest?e.target.closest('.mg-item'):null; if(!it) return;
+  var kind=it.getAttribute('data-kind'), ref=it.getAttribute('data-ref'),
+      src=it.getAttribute('data-src'), prev=it.getAttribute('data-prev');
+  if(mgTarget.mode==='change' && mgTarget.card){ applyExistingToCard(mgTarget.card, kind, ref, src, prev); }
+  else { addAdvisorFromExisting(kind, ref, src, prev); }
+  closeMediaModal(); hideMsg(); updateSave();
+});
 /* Reordenar por arrastre desde la manija (grip) */
 var dragEl=null;
 grid.addEventListener('mousedown', function(e){ var g=e.target.closest?e.target.closest('.avc-grip'):null; if(!g)return; var c=g.closest('.avc'); if(c)c.setAttribute('draggable','true'); });
@@ -3059,7 +3245,8 @@ setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,
 })();
 </script></body></html>"""
     _html = (_html.replace("__CARDS__", _cards).replace("__DROP__", _drop)
-             .replace("__TPL__", _tpl))
+             .replace("__TPL__", _tpl).replace("__GAL_V__", _gal_v).replace("__GAL_I__", _gal_i)
+             .replace("__ADDICON__", _add))
     _n = len(advisors) + 1   # +1 por la tarjeta de «Agregar asesor»
     _rows = (_n + 3) // 4
     return _html, 120 + _rows * 300 + 70
@@ -3290,6 +3477,16 @@ def _render_reels():
                     _reels_clear_state()
                 st.rerun()
 
+    # Media ya subida a Shopify (para reusar al cambiar/agregar y NO duplicar archivos).
+    _media_v = st.session_state.get("sw_media_vids")
+    if _media_v is None:
+        _media_v, _ = _shop.listar_videos_files()
+        st.session_state["sw_media_vids"] = _media_v or []
+    _media_i = st.session_state.get("sw_media_imgs")
+    if _media_i is None:
+        _media_i, _ = _shop.listar_imagenes_files()
+        st.session_state["sw_media_imgs"] = _media_i or []
+
     _adv_work = []
     for _a in _advisors:
         _rv = _vids.get(str(_a.get("video"))) or {}
@@ -3299,7 +3496,7 @@ def _render_reels():
                           "image_url": _img, "disabled": bool(_a.get("disabled")),
                           "_img": _img, "_pv": _rv.get("preview_url") or "",
                           "_src": _rv.get("src") or ""})
-    _adv_html, _adv_h = _build_advisors_form(_adv_work)
+    _adv_html, _adv_h = _build_advisors_form(_adv_work, _media_v, _media_i)
     components.html(_adv_html, height=int(_adv_h), scrolling=False)
 
     # ── Editor HTML de reels (subir/cambiar video, eliminar, reordenar, asociar producto) ──
@@ -3364,7 +3561,7 @@ def _render_reels():
                     _reels_clear_state()
                 st.rerun()
 
-    _form_html, _form_h = _build_reels_form(_work, _prod_opts, _adv_names)
+    _form_html, _form_h = _build_reels_form(_work, _prod_opts, _adv_names, _media_v)
     components.html(_form_html, height=int(_form_h), scrolling=False)
     # Nonce: re-monta el botón flotante «Guardar reels» en cada render.
     components.html(_SW_REELS_FLOAT_JS + f"<!--{_uuid.uuid4().hex}-->", height=0)

@@ -1332,6 +1332,46 @@ def listar_videos_files() -> tuple:
     return _out, None
 
 
+def _fetch_images_files() -> list:
+    """Nodos MediaImage de Content > Files (hasta 250). DEFENSIVO: si falla devuelve []."""
+    def _fetch(_qf):
+        q = ("query($q:String){ files(first:250, query:$q){ nodes{ __typename "
+             "... on MediaImage { id image{ url } preview{ image{ url } } } } } }")
+        data, err = _graphql(q, {"q": _qf})
+        if err:
+            return None
+        return ((data or {}).get("files") or {}).get("nodes") or []
+    _nodes = _fetch("media_type:IMAGE")
+    if not _nodes:  # por si el filtro no aplica en esta versión de la API
+        _nodes = _fetch(None)
+    return [_n for _n in (_nodes or []) if _n and _n.get("__typename") == "MediaImage"]
+
+
+def listar_imagenes_files() -> tuple:
+    """Lista las imágenes de Content > Files para el SELECTOR de FOTO del asesor (reusar una ya
+    subida y evitar duplicados). Devuelve (lista, error) con {filename, url, preview_url}. `url`
+    es el valor a guardar en el setting 'image_url' del bloque asesor. DEFENSIVO."""
+    if not configurado():
+        return [], "Sin credenciales de Shopify."
+    _out, _seen = [], set()
+    for _n in _fetch_images_files():
+        _url = (((_n.get("image") or {}).get("url"))
+                or (((_n.get("preview") or {}).get("image") or {}).get("url")) or "")
+        if not _url or _url in _seen:
+            continue
+        _seen.add(_url)
+        _fn = _url.split("?", 1)[0].rsplit("/", 1)[-1]
+        try:
+            from urllib.parse import unquote
+            _fn = unquote(_fn)
+        except Exception:
+            pass
+        _out.append({"filename": _fn, "url": _url,
+                     "preview_url": (((_n.get("preview") or {}).get("image") or {}).get("url")) or _url})
+    _out.sort(key=lambda v: v["filename"].lower())
+    return _out, None
+
+
 def resolver_videos(video_ids) -> tuple:
     """Dado un iterable de valores de video de los reels, devuelve (dict, error) con
     {valor_original: {gid, preview_url, src}}. Resuelve DOS formatos:
