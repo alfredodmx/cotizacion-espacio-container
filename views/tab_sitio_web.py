@@ -2813,6 +2813,243 @@ _SW_REELS_FLOAT_JS = r"""<script>
 </script>"""
 
 
+def _advisor_media_html(a):
+    """Media del círculo del asesor: video (autoplay mudo en loop, como en la web), o su
+    imagen de preview, o un placeholder «sin video»."""
+    _src, _pv = _he(a.get("_src") or ""), _he(a.get("_pv") or "")
+    if _src:
+        _pt = (f'poster="{_pv}"' if _pv else "")
+        return (f'<video class="avc-vid" autoplay muted loop playsinline preload="metadata" '
+                f'{_pt} src="{_src}"></video>')
+    if _pv:
+        return f'<div class="avc-ph" style="background:url(\'{_pv}\') center/cover;"></div>'
+    return '<div class="avc-ph avc-ph--empty">SIN<br>VIDEO</div>'
+
+
+def _advisor_card_html(a):
+    """Una tarjeta de asesor del editor HTML: círculo con el video + nombre + cargo, con
+    botones de eliminar, bloquear/mostrar y manija para reordenar."""
+    _x = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
+          'stroke-linecap="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>')
+    _grip = ('<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/>'
+             '<circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/>'
+             '<circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>')
+    _cam = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            'stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5V7z"/>'
+            '<rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>')
+    _off = " avc--off" if a.get("disabled") else ""
+    _dis = "1" if a.get("disabled") else ""
+    return (
+        f'<div class="avc{_off}" draggable="false" data-id="{_he(a.get("id") or "")}" '
+        f'data-video="{_he(a.get("video") or "")}" data-newkey="" data-disabled="{_dis}">'
+        '<div class="avc-circle">'
+        f'{_advisor_media_html(a)}'
+        f'<button type="button" class="avc-del" title="Eliminar asesor">{_x}</button>'
+        '<button type="button" class="avc-block" title="Bloquear u ocultar en la web"></button>'
+        f'<span class="avc-grip" title="Arrastrar para ordenar">{_grip}</span>'
+        '<span class="avc-badge">Bloqueado</span>'
+        '</div>'
+        '<div class="avc-body">'
+        f'<button type="button" class="avc-change">{_cam}Cambiar video</button>'
+        f'<input class="avc-name ed-in" type="text" value="{_he(a.get("name") or "")}" '
+        'placeholder="Nombre del asesor">'
+        f'<input class="avc-role ed-in" type="text" value="{_he(a.get("role") or "")}" '
+        'placeholder="Cargo (opcional)">'
+        '</div></div>')
+
+
+def _build_advisors_form(advisors):
+    """Editor HTML de los asesores (círculos) de la sección «Reels por asesor»: agregar, editar
+    (nombre/cargo/video), eliminar, bloquear/mostrar y reordenar — tal como en el editor de
+    Shopify, pero desde el sistema. El guardado va por el puente sw_advcmd (videos nuevos en
+    base64). El botón «Guardar asesores» vive DENTRO del iframe para no chocar con el flotante
+    de reels. Devuelve (html, alto)."""
+    _add = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" '
+            'stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>')
+    _cards = "".join(_advisor_card_html(a) for a in advisors)
+    _drop = ('<div class="av-drop" id="av-drop" role="button" tabindex="0" aria-label="Agregar asesor">'
+             '<span class="av-drop-plus">' + _add + '</span>'
+             '<span class="av-drop-txt">Agregar asesor</span>'
+             '<span class="av-drop-sub">Clic o arrastra un video vertical</span></div>')
+    _tpl = _advisor_card_html({"id": None, "video": "", "name": "", "role": "",
+                               "disabled": False, "_pv": "", "_src": ""})
+    _html = r"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;} html,body{margin:0;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;background:transparent;color:#0f172a;}
+#av-root{padding-bottom:10px;}
+.av-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:16px;align-items:start;}
+.avc{background:#fff;border:1px solid #e8ebf3;border-radius:16px;padding:14px 12px 15px;box-shadow:0 2px 10px rgba(15,23,42,.05);
+  display:flex;flex-direction:column;align-items:center;transition:opacity .15s,border-color .15s;}
+.avc.av-dragging{opacity:.45;}
+.avc--off{opacity:.62;border-color:#fde68a;background:#fffbeb;}
+.avc-circle{position:relative;width:118px;height:118px;border-radius:50%;overflow:hidden;background:#0f172a;
+  border:2.5px solid #e2e8f0;flex-shrink:0;}
+.avc--off .avc-circle{border-color:#f59e0b;}
+.avc-vid,.avc-ph{width:100%;height:100%;object-fit:cover;display:block;}
+.avc-ph{display:flex;align-items:center;justify-content:center;text-align:center;color:#64748b;background:#111827;
+  font-family:Montserrat,sans-serif;font-weight:800;font-size:.6rem;letter-spacing:.06em;line-height:1.25;}
+.avc-ph--empty{color:#94a3b8;}
+.avc-del,.avc-block,.avc-grip{position:absolute;width:27px;height:27px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:rgba(15,23,42,.62);color:#fff;cursor:pointer;border:none;z-index:3;padding:0;}
+.avc-del{top:3px;left:3px;} .avc-block{top:3px;right:3px;} .avc-grip{bottom:3px;right:3px;cursor:grab;}
+.avc-del:hover{background:#dc2626;} .avc-block:hover{background:#2563eb;}
+.avc--off .avc-block{background:#f59e0b;}
+.avc-del svg,.avc-block svg,.avc-grip svg{width:15px;height:15px;}
+.avc-badge{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;
+  background:#b45309;color:#fff;font-family:Montserrat,sans-serif;font-weight:800;font-size:.58rem;letter-spacing:.05em;
+  text-transform:uppercase;padding:4px 9px;border-radius:999px;white-space:nowrap;}
+.avc--off .avc-badge{display:block;}
+.avc-body{width:100%;display:flex;flex-direction:column;margin-top:11px;}
+.avc-change{margin-bottom:8px;background:#eef2ff;color:#2563eb;border:1px solid #dbe3ff;border-radius:9px;padding:7px;
+  font-family:'Plus Jakarta Sans';font-weight:700;font-size:.72rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;gap:6px;transition:background .15s;}
+.avc-change:hover{background:#dbe3ff;} .avc-change svg{width:14px;height:14px;}
+.ed-in{width:100%;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 10px;font-size:.82rem;font-family:inherit;
+  background:#f8fafc;outline:none;color:#0f172a;margin-bottom:7px;}
+.ed-in:last-child{margin-bottom:0;}
+.ed-in:focus{border-color:#5b7cfa;background:#fff;}
+.av-msg{display:none;background:#fff1f2;border:1px solid #fca5a5;color:#b91c1c;border-radius:10px;padding:10px 13px;
+  font-size:.8rem;line-height:1.4;margin-bottom:12px;}
+.av-drop{border:2px dashed #cbd5e1;border-radius:16px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;cursor:pointer;color:#64748b;background:#f8fafc;min-height:230px;padding:16px;
+  text-align:center;transition:border-color .15s,background .15s,color .15s;}
+.av-drop:hover,.av-drop.is-over{border-color:#5b7cfa;background:#eef2ff;color:#2563eb;}
+.av-drop-plus{width:50px;height:50px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;
+  justify-content:center;transition:background .15s,transform .15s;}
+.av-drop:hover .av-drop-plus,.av-drop.is-over .av-drop-plus{background:#dbe3ff;transform:scale(1.06);}
+.av-drop-plus svg{width:26px;height:26px;}
+.av-drop-txt{font-family:Montserrat,sans-serif;font-weight:800;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;}
+.av-drop-sub{font-size:.66rem;color:#94a3b8;font-weight:600;line-height:1.3;}
+.av-drop.is-over .av-drop-sub{color:#2563eb;}
+.av-savebar{display:flex;justify-content:center;margin-top:18px;}
+.av-save{font-family:Montserrat,'Segoe UI',sans-serif;font-weight:800;font-size:.78rem;text-transform:uppercase;
+  letter-spacing:.05em;padding:13px 32px;border:none;border-radius:12px;color:#fff;background:#aab2c5;cursor:default;
+  box-shadow:0 6px 16px rgba(15,23,42,.14);transition:background .18s,box-shadow .18s,transform .1s;}
+.av-save.is-dirty{background:linear-gradient(135deg,#5b7cfa,#2563eb);cursor:pointer;box-shadow:0 12px 30px rgba(37,99,235,.40);}
+.av-save:active.is-dirty{transform:translateY(1px);}
+</style></head><body><div id="av-root">
+<div id="av-msg" class="av-msg"></div>
+<div class="av-grid" id="av-grid">__CARDS____DROP__</div>
+<div class="av-savebar"><button type="button" id="av-save" class="av-save" disabled>Guardar asesores</button></div>
+<template id="av-tpl">__TPL__</template>
+<input type="file" id="av-file" accept="video/*" style="display:none">
+</div>
+<script>
+(function(){
+var doc=document, P=window.parent;
+var grid=doc.getElementById('av-grid'), fileIn=doc.getElementById('av-file'),
+    dropEl=doc.getElementById('av-drop'), tpl=doc.getElementById('av-tpl'),
+    msg=doc.getElementById('av-msg'), saveBtn=doc.getElementById('av-save');
+var newFiles={}, upMode={op:'',card:null};
+var EYE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+var EYEOFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.1 10.1 0 0 1 12 20C5.5 20 2 13 2 13a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M1 1l22 22"/></svg>';
+function uid(){ return 'n'+Math.random().toString(36).slice(2,10); }
+function fileB64(f){ return new Promise(function(res){ var r=new FileReader();
+  r.onload=function(){ try{ res((''+r.result).split(',')[1]||''); }catch(e){ res(''); } };
+  r.onerror=function(){ res(''); }; r.readAsDataURL(f); }); }
+function setCardVideo(card, url){ var c=card.querySelector('.avc-circle'); if(!c)return;
+  var btns=c.querySelectorAll('.avc-del,.avc-block,.avc-grip,.avc-badge');
+  c.innerHTML='<video class="avc-vid" autoplay muted loop playsinline src="'+(url+'').replace(/"/g,'&quot;')+'"></video>';
+  [].forEach.call(btns,function(b){ c.appendChild(b); }); }
+function syncBlockIcons(){ [].slice.call(grid.querySelectorAll('.avc')).forEach(function(c){
+  var b=c.querySelector('.avc-block'); if(b) b.innerHTML=(c.getAttribute('data-disabled')==='1')?EYEOFF:EYE; }); }
+function collect(){ var out=[]; [].slice.call(grid.querySelectorAll('.avc')).forEach(function(c){
+  out.push({id:c.getAttribute('data-id')||'', video:c.getAttribute('data-video')||'', newkey:c.getAttribute('data-newkey')||'',
+    name:(c.querySelector('.avc-name')||{}).value||'', role:(c.querySelector('.avc-role')||{}).value||'',
+    disabled:c.getAttribute('data-disabled')==='1'}); }); return out; }
+var _initial=JSON.stringify(collect());
+function dirty(){ return JSON.stringify(collect())!==_initial || Object.keys(newFiles).length>0; }
+function updateSave(){ var d=dirty(); saveBtn.disabled=!d; saveBtn.classList.toggle('is-dirty',d);
+  try{ P._swAdvDirty=d; }catch(e){} }
+function showMsg(t){ if(msg){ msg.textContent=t; msg.style.display='block'; } }
+function hideMsg(){ if(msg) msg.style.display='none'; }
+function addAdvisorFromFile(f){
+  if(!f) return;
+  if((f.type||'').indexOf('video')!==0){ showMsg('El archivo debe ser un video.'); return; }
+  var key=uid(); newFiles[key]=f; var url=URL.createObjectURL(f);
+  var node=tpl.content.firstElementChild.cloneNode(true);
+  node.setAttribute('data-id',''); node.setAttribute('data-video',''); node.setAttribute('data-newkey',key);
+  node.setAttribute('data-disabled','');
+  grid.insertBefore(node, dropEl); setCardVideo(node,url); syncBlockIcons();
+  var nm=node.querySelector('.avc-name'); if(nm) nm.focus();
+  node.scrollIntoView({block:'nearest'}); hideMsg(); updateSave();
+}
+function changeAdvisorVideo(card, f){
+  if(!card || !f) return;
+  if((f.type||'').indexOf('video')!==0){ showMsg('El archivo debe ser un video.'); return; }
+  var key=uid(); newFiles[key]=f; var url=URL.createObjectURL(f);
+  var old=card.getAttribute('data-newkey'); if(old&&newFiles[old]&&old!==key)delete newFiles[old];
+  card.setAttribute('data-newkey',key); setCardVideo(card,url); hideMsg(); updateSave();
+}
+grid.addEventListener('click', function(e){
+  var ch=e.target.closest?e.target.closest('.avc-change'):null;
+  if(ch){ upMode={op:'change',card:ch.closest('.avc')}; fileIn.value=''; fileIn.click(); return; }
+  var bl=e.target.closest?e.target.closest('.avc-block'):null;
+  if(bl){ var cb=bl.closest('.avc'); var off=cb.getAttribute('data-disabled')==='1';
+    cb.setAttribute('data-disabled',off?'':'1'); cb.classList.toggle('avc--off',!off); syncBlockIcons(); updateSave(); return; }
+  var dl=e.target.closest?e.target.closest('.avc-del'):null;
+  if(dl){ var c=dl.closest('.avc'); var nk=c.getAttribute('data-newkey'); if(nk&&newFiles[nk])delete newFiles[nk]; c.remove(); updateSave(); }
+});
+fileIn.addEventListener('change', function(){
+  var f=this.files&&this.files[0]; this.value='';
+  if(upMode.op==='change' && upMode.card){ changeAdvisorVideo(upMode.card, f); }
+  else { addAdvisorFromFile(f); }
+});
+function pickForAdd(){ upMode={op:'add',card:null}; fileIn.value=''; fileIn.click(); }
+dropEl.addEventListener('click', pickForAdd);
+dropEl.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pickForAdd(); } });
+['dragenter','dragover'].forEach(function(ev){ dropEl.addEventListener(ev, function(e){ if(dragEl) return; e.preventDefault(); e.stopPropagation(); if(e.dataTransfer)e.dataTransfer.dropEffect='copy'; dropEl.classList.add('is-over'); }); });
+['dragleave','dragend'].forEach(function(ev){ dropEl.addEventListener(ev, function(e){ if(dragEl) return; e.stopPropagation(); dropEl.classList.remove('is-over'); }); });
+dropEl.addEventListener('drop', function(e){ if(dragEl) return; e.preventDefault(); e.stopPropagation(); dropEl.classList.remove('is-over');
+  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) addAdvisorFromFile(f); });
+/* Reordenar por arrastre desde la manija (grip) */
+var dragEl=null;
+grid.addEventListener('mousedown', function(e){ var g=e.target.closest?e.target.closest('.avc-grip'):null; if(!g)return; var c=g.closest('.avc'); if(c)c.setAttribute('draggable','true'); });
+grid.addEventListener('mouseup', function(){ [].slice.call(grid.querySelectorAll('.avc')).forEach(function(c){ c.setAttribute('draggable','false'); }); });
+grid.addEventListener('dragstart', function(e){ var c=e.target.closest?e.target.closest('.avc'):null; if(!c){return;} dragEl=c; e.dataTransfer.effectAllowed='move'; setTimeout(function(){ c.classList.add('av-dragging'); },0); });
+grid.addEventListener('dragend', function(){ if(dragEl){ dragEl.classList.remove('av-dragging'); dragEl.setAttribute('draggable','false'); } dragEl=null; updateSave(); });
+grid.addEventListener('dragover', function(e){ e.preventDefault(); if(!dragEl)return; var t=e.target.closest?e.target.closest('.avc'):null; if(!t||t===dragEl)return;
+  var r=t.getBoundingClientRect(); var before=(e.clientX < r.left + r.width/2); grid.insertBefore(dragEl, before?t:t.nextSibling); });
+grid.addEventListener('input', updateSave);
+grid.addEventListener('change', updateSave);
+/* Guardado directo (botón dentro del iframe → no choca con el flotante de reels) */
+function fire(payload){ try{ var W=P, D=W.document; var inp=D.querySelector('.st-key-sw_advcmd input'); if(!inp)return;
+  var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set; inp.focus({preventScroll:true});
+  setter.call(inp, payload+'|'+Date.now()); inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true}));
+  inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true})); inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+  inp.dispatchEvent(new FocusEvent('blur',{bubbles:true})); inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true})); inp.blur(); }catch(e){} }
+async function doSave(){
+  if(saveBtn.disabled) return;
+  try{
+    var cards=collect();
+    var keys=Object.keys(newFiles), tot=0, i;
+    for(i=0;i<keys.length;i++){ tot+=newFiles[keys[i]].size; }
+    if(tot>100*1024*1024){ showMsg('Los videos nuevos suman '+(tot/1048576).toFixed(0)+' MB. Máximo 100 MB por guardado — sube menos a la vez o comprímelos.'); return; }
+    saveBtn.disabled=true; saveBtn.classList.remove('is-dirty');
+    var nv=[];
+    for(i=0;i<keys.length;i++){ var k=keys[i]; saveBtn.textContent='Subiendo '+(i+1)+'/'+keys.length+'…';
+      var bb=await fileB64(newFiles[k]); if(bb) nv.push({key:k, name:newFiles[k].name, mime:(newFiles[k].type||'video/mp4'), b64:bb}); }
+    saveBtn.textContent='Guardando…';
+    fire(JSON.stringify({advisors:cards, new_videos:nv}));
+  }catch(e){ saveBtn.textContent='Guardar asesores'; updateSave(); }
+}
+saveBtn.addEventListener('click', doSave);
+syncBlockIcons(); updateSave();
+/* Auto-ajuste del alto del iframe */
+function swResize(){ try{ var el=doc.getElementById('av-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+6; var fe=window.frameElement; if(!fe)return;
+  if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){ fe.style.setProperty('height', h+'px','important'); } }catch(e){} }
+setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,t); });
+})();
+</script></body></html>"""
+    _html = (_html.replace("__CARDS__", _cards).replace("__DROP__", _drop)
+             .replace("__TPL__", _tpl))
+    _n = len(advisors) + 1   # +1 por la tarjeta de «Agregar asesor»
+    _rows = (_n + 3) // 4
+    return _html, 120 + _rows * 300 + 70
+
+
 def _render_reels():
     """FASE 2: muestra y EDITA los reels de la sección de Shopify (bloques del tema) — video,
     ejecutivo (asesor), descripción y producto vinculado — más agregar, eliminar y reordenar.
@@ -2832,6 +3069,9 @@ def _render_reels():
 
     if st.session_state.pop("sw_reels_saved", False):
         st.success("Reels guardados en el tema. Cuando publiques ese tema, pasan a producción.",
+                   icon=":material/check_circle:")
+    if st.session_state.pop("sw_adv_saved", False):
+        st.success("Asesores guardados en el tema. Cuando publiques ese tema, pasan a producción.",
                    icon=":material/check_circle:")
     _rerrs = st.session_state.pop("sw_reels_errs", None)
     if _rerrs:
@@ -2951,18 +3191,79 @@ def _render_reels():
         st.markdown("**Claves crudas de los bloques (del tema):**")
         st.json(_info.get("raw_blocks") or [])
 
-    if _advisors:
-        st.markdown('<div class="sw-reels-h">Asesores</div>', unsafe_allow_html=True)
-        _nc = min(6, max(1, len(_advisors)))
-        _acols = st.columns(_nc)
-        for _i, _a in enumerate(_advisors):
-            with _acols[_i % _nc]:
-                _pv = (_vids.get(str(_a.get("video"))) or {}).get("preview_url", "")
-                _av = (f'<div class="sw-reel-av" style="background-image:url(\'{_he(_pv)}\')"></div>'
-                       if _pv else '<div class="sw-reel-av sw-reel-av--empty">Sin video</div>')
-                st.markdown(_av + f'<div class="sw-reel-avn">{_he(_a.get("name") or "—")}</div>'
-                            + (f'<div class="sw-reel-avr">{_he(_a.get("role"))}</div>'
-                               if _a.get("role") else ""), unsafe_allow_html=True)
+    # ── Editor HTML de ASESORES (círculos): agregar, editar, eliminar, bloquear y reordenar ──
+    st.markdown('<div class="sw-reels-h">Asesores (círculos)</div>', unsafe_allow_html=True)
+    st.caption("Los asesores son los círculos de arriba del carrusel en la web. Agrégalos, edita "
+               "su nombre/cargo/video, reordénalos (manija ⠿), elimínalos o **bloquéalos** (ojo) "
+               "para ocultarlos sin perderlos. El nombre debe coincidir con el «Ejecutivo» que "
+               "asignes a cada reel abajo — eso es lo que activa el **filtro por asesor**.")
+
+    # Puente de guardado de asesores (input oculto sw_advcmd, se auto-limpia tras procesar).
+    st.markdown("<style>.st-key-sw_advcmd{position:fixed!important;left:-9999px!important;"
+                "width:1px!important;height:1px!important;opacity:0!important;}</style>",
+                unsafe_allow_html=True)
+    if st.session_state.pop("_sw_reset_advcmd", False):
+        st.session_state["sw_advcmd"] = ""
+    _ac = st.text_input("advcmd", key="sw_advcmd", label_visibility="collapsed")
+    if _ac and "|" in _ac:
+        _abody, _ats = _ac.rsplit("|", 1)
+        if _ats != st.session_state.get("sw_advcmd_ts"):
+            st.session_state["sw_advcmd_ts"] = _ats
+            st.session_state["_sw_reset_advcmd"] = True
+            import json as _json
+            try:
+                _data = _json.loads(_abody)
+            except Exception:
+                _data = None
+            if _data is not None:
+                _errs, _refmap = [], {}
+                _nv = _data.get("new_videos") or []
+                _spin = (f"Subiendo {len(_nv)} video(s) y guardando los asesores…" if _nv
+                         else "Guardando los asesores…")
+                with st.spinner(_spin):
+                    for _v in _nv:
+                        try:
+                            _vb = base64.b64decode(_v.get("b64") or "")
+                        except Exception:
+                            _vb = b""
+                        if not _vb:
+                            continue
+                        _ref, _pv3, _src3, _e = _shop.subir_video_archivo(
+                            _v.get("name") or "video.mp4", _v.get("mime") or "video/mp4", _vb)
+                        if _e or not _ref:
+                            _errs.append(_e or "No se pudo subir un video.")
+                        else:
+                            _refmap[_v.get("key")] = _ref
+                    _advs_final = []
+                    for _c in (_data.get("advisors") or []):
+                        _vid = _refmap.get(_c.get("newkey")) if _c.get("newkey") else _c.get("video")
+                        _nm = (_c.get("name") or "").strip()
+                        if not _c.get("id") and not _vid and not _nm:
+                            continue   # asesor nuevo sin video ni nombre → se ignora
+                        _advs_final.append({"id": _c.get("id") or None, "video": _vid,
+                                            "name": _c.get("name") or "", "role": _c.get("role") or "",
+                                            "disabled": bool(_c.get("disabled"))})
+                    _ok, _serr, _bk = _shop.guardar_advisors(
+                        _info.get("theme_id"), _info.get("asset_key"), _info.get("section_id"),
+                        _advs_final, advisor_type=_info.get("advisor_type") or "advisor")
+                    if not _ok:
+                        _errs.append(_serr or "No se pudo guardar los asesores.")
+                if _errs:
+                    st.session_state["sw_reels_errs"] = _errs
+                else:
+                    st.session_state["sw_adv_saved"] = True
+                    _reels_clear_state()
+                st.rerun()
+
+    _adv_work = []
+    for _a in _advisors:
+        _rv = _vids.get(str(_a.get("video"))) or {}
+        _adv_work.append({"id": _a.get("id"), "name": _a.get("name") or "",
+                          "role": _a.get("role") or "", "video": _a.get("video"),
+                          "disabled": bool(_a.get("disabled")),
+                          "_pv": _rv.get("preview_url") or "", "_src": _rv.get("src") or ""})
+    _adv_html, _adv_h = _build_advisors_form(_adv_work)
+    components.html(_adv_html, height=int(_adv_h), scrolling=False)
 
     # ── Editor HTML de reels (subir/cambiar video, eliminar, reordenar, asociar producto) ──
     _adv_names = ([a.get("name") for a in _advisors if a.get("name")]

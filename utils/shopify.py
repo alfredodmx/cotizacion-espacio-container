@@ -1230,7 +1230,8 @@ def _reels_en_tema(tema) -> tuple:
                            "advisor_name": _st.get("advisor_name") or ""})
         elif _b.get("type") in _ADV_TYPES:
             _advisors.append({"id": _bid, "name": _st.get("name") or "",
-                              "role": _st.get("role") or "", "video": _st.get("video")})
+                              "role": _st.get("role") or "", "video": _st.get("video"),
+                              "disabled": bool(_b.get("disabled"))})
     return ({"theme_id": _tid, "theme_name": tema.get("name") or "",
              "theme_role": str(tema.get("role") or ""), "asset_key": _key,
              "section_id": _sid, "section_type": _sec.get("type") or "",
@@ -1453,6 +1454,94 @@ def guardar_reels(theme_id, asset_key, section_id, reels, backup=True, prod_hand
         _new_reel_ids.append(_bid)
     _sec["blocks"] = _new_blocks
     _sec["block_order"] = _no_reel + _new_reel_ids
+    # Respaldo best-effort del asset ORIGINAL (por si hay que revertir a mano).
+    _bkey = None
+    if backup:
+        _cand = f"assets/reels_backup_{time.strftime('%Y%m%d_%H%M%S')}.json"
+        try:
+            _bok, _ = escribir_asset(theme_id, _cand, _raw)
+            _bkey = _cand if _bok else None
+        except Exception:
+            _bkey = None
+    _ok, _we = escribir_asset(theme_id, asset_key, _json.dumps(_obj, ensure_ascii=False))
+    if not _ok:
+        return False, _we, _bkey
+    return True, None, _bkey
+
+
+def guardar_advisors(theme_id, asset_key, section_id, advisors, advisor_type="advisor",
+                     backup=True) -> tuple:
+    """Reescribe los bloques de ASESOR (círculos) de la sección de reels en el asset del tema
+    (read-modify-write con respaldo). `advisors` es la lista FINAL en ORDEN: cada uno
+    {id?, name, role, video, disabled}; los que no traen 'id' se CREAN, los que faltan respecto
+    al tema se ELIMINAN, el ORDEN de la lista fija el orden de los círculos (y por tanto del
+    filtro por asesor) y 'disabled'=True BLOQUEA/oculta al asesor en la web SIN borrarlo
+    (Shopify excluye los bloques disabled de section.blocks → no se renderizan). Conserva
+    intactos los bloques que no son asesor (reels). Devuelve (ok, error, backup_key|None).
+
+    CUIDADO: escribe la config del tema. Sólo toca la sección indicada y los bloques de asesor;
+    antes de escribir guarda un respaldo del asset original en assets/reels_backup_<ts>.json."""
+    import json as _json, uuid, time
+    if not configurado():
+        return False, "Sin credenciales de Shopify.", None
+    _val, _e = leer_asset(theme_id, asset_key)
+    if _e:
+        return False, _e, None
+    if not _val:
+        return False, "No se pudo leer el asset del tema (¿cambió?).", None
+    _raw = _val
+    try:
+        _obj = _json.loads(_val)
+    except Exception:
+        try:  # los .json de tema a veces llevan un comentario /* */ inicial
+            import re
+            _clean = re.sub(r"^\s*/\*.*?\*/\s*", "", _val, flags=re.S)
+            _obj = _json.loads(_clean)
+            _raw = _clean
+        except Exception as ex:
+            return False, f"No se pudo interpretar el JSON del tema: {ex}", None
+    _cont = _obj
+    if asset_key == "config/settings_data.json":
+        _cont = _obj.get("current") if isinstance(_obj.get("current"), dict) else None
+        if _cont is None:
+            return False, "Estructura inesperada de settings_data.json.", None
+    _secs = _cont.get("sections") if isinstance(_cont, dict) else None
+    if not isinstance(_secs, dict) or section_id not in _secs:
+        return False, "No se encontró la sección de reels (¿cambió el tema?).", None
+    _sec = _secs[section_id]
+    _blocks = _sec.get("blocks") or {}
+    _order = _sec.get("block_order") or list(_blocks.keys())
+    # Bloques que NO son asesor (reels, etc.), en su orden original: se conservan tal cual.
+    _no_adv = [bid for bid in _order if isinstance(_blocks.get(bid), dict)
+               and _blocks[bid].get("type") not in _ADV_TYPES]
+    _new_blocks = {bid: _blocks[bid] for bid in _no_adv}
+    _atype = advisor_type if advisor_type in _ADV_TYPES else "advisor"
+    _new_adv_ids = []
+    for _a in (advisors or []):
+        _bid = _a.get("id")
+        if _bid and _bid in _blocks and (_blocks.get(_bid) or {}).get("type") in _ADV_TYPES:
+            _blk = dict(_blocks[_bid])                        # conserva campos extra del bloque
+            _stt = dict(_blk.get("settings") or {})           # conserva settings extra
+            _btype = _blk.get("type") or _atype
+        else:
+            _bid = "advisor_" + uuid.uuid4().hex[:12]
+            _blk, _stt, _btype = {}, {}, _atype
+        _vid = _a.get("video")
+        if _vid in (None, ""):
+            _vid = _stt.get("video", "")                      # mantiene el video actual si no cambió
+        _stt["video"] = _vid
+        _stt["name"] = _a.get("name", "") or ""
+        _stt["role"] = _a.get("role", "") or ""
+        _blk["type"] = _btype
+        _blk["settings"] = _stt
+        if _a.get("disabled"):
+            _blk["disabled"] = True                           # bloqueado: Shopify no lo renderiza
+        else:
+            _blk.pop("disabled", None)
+        _new_blocks[_bid] = _blk
+        _new_adv_ids.append(_bid)
+    _sec["blocks"] = _new_blocks
+    _sec["block_order"] = _new_adv_ids + _no_adv              # asesores primero, luego reels
     # Respaldo best-effort del asset ORIGINAL (por si hay que revertir a mano).
     _bkey = None
     if backup:
