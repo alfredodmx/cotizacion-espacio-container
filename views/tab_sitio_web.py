@@ -10,6 +10,7 @@ Requiere que el token de Shopify tenga `write_products` (además de `read_produc
 Todo DEFENSIVO: si faltan credenciales o el token no tiene permisos, avisa claro.
 """
 import base64
+import json as _json
 import uuid as _uuid
 import streamlit as st
 import streamlit.components.v1 as components
@@ -2722,7 +2723,7 @@ def _build_reels_form(work, prod_opts, adv_names, media_videos=None):
       <button type="button" class="mg-up" id="mg-up">__ADDICON__ Subir del PC</button>
       <input type="text" class="mg-search" id="mg-search" placeholder="Buscar por nombre…">
     </div>
-    <div class="mg-galwrap"><div class="mg-gal" id="mg-gal-video">__RGAL__</div></div>
+    <div class="mg-galwrap"><div class="mg-gal" data-gal="video">__RGAL__</div></div>
   </div>
 </div>
 <template id="rl-tpl">__TPL__</template>
@@ -2780,26 +2781,25 @@ fileIn.addEventListener('change', function(){
   else { addReelFromFile(f); }
 });
 /* ---- Selector de video existente de Shopify (o subir del PC) ---- */
-var mgModal=doc.getElementById('mg-modal'), mgSearch=doc.getElementById('mg-search');
-var mgTarget={mode:'',card:null}, modalOpen=false;
-/* Mientras el modal está abierto, el iframe pasa a pantalla completa para que la ventana se vea
-   grande y centrada y el fondo cubra toda la página. Al cerrar se restaura. */
-function setFrameFullscreen(on){ var fe=window.frameElement; if(!fe) return;
-  if(on){ fe.style.setProperty('position','fixed','important'); fe.style.setProperty('top','0','important');
-    fe.style.setProperty('left','0','important'); fe.style.setProperty('width','100vw','important');
-    fe.style.setProperty('height','100vh','important'); fe.style.setProperty('max-width','none','important');
-    fe.style.setProperty('z-index','2147483000','important'); }
-  else { ['position','top','left','width','height','max-width','z-index'].forEach(function(p){ fe.style.removeProperty(p); });
-    fe.style.height=''; } }
+var mgModal=doc.getElementById('mg-modal');
+var mgTarget={mode:'',card:null};
+/* El modal se monta en el documento PADRE para verse grande y centrado sobre TODA la página
+   (dentro del iframe quedaría recortado). Se inyecta su CSS en el padre una sola vez y se quita
+   el modal anterior de este editor en cada re-render. */
+(function(){ try{ var PD=P.document;
+  if(!PD.getElementById('mg-css-rl')){ var stc=PD.createElement('style'); stc.id='mg-css-rl'; stc.textContent=__MGCSS__; PD.head.appendChild(stc); }
+  var prev=PD.querySelector('.mg-modal.mg-own-rl'); if(prev&&prev!==mgModal) prev.remove();
+  mgModal.classList.add('mg-own-rl'); PD.body.appendChild(mgModal);
+}catch(e){} })();
+var mgSearch=mgModal.querySelector('.mg-search');
 function filterGallery(q){ q=(q||'').toLowerCase();
-  [].slice.call(doc.querySelectorAll('.mg-item')).forEach(function(it){ var fn=(it.getAttribute('data-fn')||'').toLowerCase(); it.style.display=(!q||fn.indexOf(q)!==-1)?'':'none'; }); }
-function openMediaModal(mode, card){ mgTarget={mode:mode,card:card}; mgSearch.value=''; filterGallery('');
-  modalOpen=true; setFrameFullscreen(true); mgModal.classList.add('is-open'); setTimeout(function(){ try{mgSearch.focus();}catch(e){} },30); }
-function closeMediaModal(){ mgModal.classList.remove('is-open'); modalOpen=false; setFrameFullscreen(false); }
-doc.getElementById('mg-x').addEventListener('click', closeMediaModal);
+  [].slice.call(mgModal.querySelectorAll('.mg-item')).forEach(function(it){ var fn=(it.getAttribute('data-fn')||'').toLowerCase(); it.style.display=(!q||fn.indexOf(q)!==-1)?'':'none'; }); }
+function openMediaModal(mode, card){ mgTarget={mode:mode,card:card}; if(mgSearch) mgSearch.value=''; filterGallery(''); mgModal.classList.add('is-open'); setTimeout(function(){ try{mgSearch.focus();}catch(e){} },30); }
+function closeMediaModal(){ mgModal.classList.remove('is-open'); }
+mgModal.querySelector('.mg-x').addEventListener('click', closeMediaModal);
 mgModal.addEventListener('click', function(e){ if(e.target===mgModal) closeMediaModal(); });
-mgSearch.addEventListener('input', function(){ filterGallery(mgSearch.value); });
-doc.getElementById('mg-up').addEventListener('click', function(){ upMode={op:(mgTarget.mode==='change'?'change':'add'), card:mgTarget.card}; closeMediaModal(); fileIn.value=''; fileIn.click(); });
+if(mgSearch) mgSearch.addEventListener('input', function(){ filterGallery(mgSearch.value); });
+mgModal.querySelector('.mg-up').addEventListener('click', function(){ upMode={op:(mgTarget.mode==='change'?'change':'add'), card:mgTarget.card}; closeMediaModal(); fileIn.value=''; fileIn.click(); });
 function setReelMedia(card, src, prev){ var w=card.querySelector('.rlc-vidwrap'); if(!w) return;
   if(src){ w.innerHTML='<video preload="metadata" playsinline controls src="'+(src+'').replace(/"/g,'&quot;')+'"></video>'; }
   else if(prev){ w.innerHTML='<div class="rlc-ph" style="background:url(\''+(prev+'').replace(/'/g,'%27')+'\') center/cover;"></div>'; }
@@ -2811,7 +2811,7 @@ function addReelFromExisting(ref, src, prev){
   var node=tpl.content.firstElementChild.cloneNode(true);
   node.setAttribute('data-id',''); node.setAttribute('data-newkey',''); node.setAttribute('data-video',ref);
   grid.insertBefore(node, dropEl); setReelMedia(node, src, prev); node.scrollIntoView({block:'nearest'}); }
-doc.querySelector('.mg-galwrap').addEventListener('click', function(e){
+mgModal.querySelector('.mg-galwrap').addEventListener('click', function(e){
   var it=e.target.closest?e.target.closest('.mg-item'):null; if(!it) return;
   var ref=it.getAttribute('data-ref'), src=it.getAttribute('data-src'), prev=it.getAttribute('data-prev');
   if(mgTarget.mode==='change' && mgTarget.card){ applyReelExisting(mgTarget.card, ref, src, prev); }
@@ -2858,14 +2858,15 @@ try{ P._swReelsDirty=false;
   }catch(e){ resetBtn(); } };
 }catch(e){}
 /* Auto-ajuste del alto del iframe */
-function swResize(){ try{ if(modalOpen) return; var el=doc.getElementById('rl-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+6; var fe=window.frameElement; if(!fe)return;
+function swResize(){ try{ var el=doc.getElementById('rl-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+6; var fe=window.frameElement; if(!fe)return;
   if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){ fe.style.setProperty('height', h+'px','important'); } }catch(e){} }
 setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,t); });
 })();
 </script></body></html>"""
     _html = (_html.replace("__CARDS__", _cards).replace("__DROP__", _drop)
              .replace("__TPL__", _tpl).replace("__ADVS__", _advs)
-             .replace("__RGAL__", _rgal).replace("__ADDICON__", _add))
+             .replace("__RGAL__", _rgal).replace("__ADDICON__", _add)
+             .replace("__MGCSS__", _json.dumps(_MG_CSS)))
     _n = len(work) + 1   # +1 por la tarjeta-dropzone (siempre al final)
     _rows = (_n + 2) // 3
     return _html, 120 + _rows * 620
@@ -2952,6 +2953,48 @@ def _advisor_card_html(a):
         f'<input class="avc-role ed-in" type="text" value="{_he(a.get("role") or "")}" '
         'placeholder="Cargo (opcional)">'
         '</div></div>')
+
+
+# CSS del selector de media. Se INYECTA en el documento PADRE (no en el iframe) porque el modal
+# se monta en el padre para verse grande y centrado sobre toda la página (un modal dentro del
+# iframe queda recortado al alto del iframe). z-index altísimo para quedar sobre todo.
+_MG_CSS = """
+.mg-modal{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;
+  background:rgba(15,23,42,.42);padding:20px;font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;}
+.mg-modal.is-open{display:flex;}
+.mg-box{background:#fff;border-radius:18px;width:min(94vw,900px);max-width:900px;max-height:88vh;display:flex;
+  flex-direction:column;overflow:hidden;box-shadow:0 30px 80px rgba(15,23,42,.4);}
+.mg-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid #eef1f6;}
+.mg-head b{font-family:Montserrat,sans-serif;font-size:.9rem;letter-spacing:.03em;color:#0f172a;}
+.mg-x{width:32px;height:32px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b;
+  cursor:pointer;font-size:1.2rem;line-height:1;display:flex;align-items:center;justify-content:center;}
+.mg-x:hover{background:#fef2f2;border-color:#fca5a5;color:#dc2626;}
+.mg-top{padding:14px 18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;border-bottom:1px solid #eef1f6;}
+.mg-up{background:linear-gradient(135deg,#5b7cfa,#2563eb);color:#fff;border:none;border-radius:9px;padding:10px 16px;
+  font-family:'Plus Jakarta Sans';font-weight:700;font-size:.82rem;cursor:pointer;display:inline-flex;align-items:center;
+  gap:7px;white-space:nowrap;flex-shrink:0;line-height:1;}
+.mg-up svg{width:15px;height:15px;flex-shrink:0;}
+.mg-up:hover{filter:brightness(1.07);}
+.mg-tabs{display:flex;gap:6px;}
+.mg-tab{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;padding:8px 13px;
+  font-family:'Plus Jakarta Sans';font-weight:700;font-size:.78rem;cursor:pointer;}
+.mg-tab.on{background:#eef2ff;color:#2563eb;border-color:#c7d2fe;}
+.mg-search{flex:1;min-width:160px;border:1.5px solid #e2e8f0;border-radius:9px;padding:9px 12px;font-size:.86rem;
+  font-family:inherit;background:#f8fafc;outline:none;color:#0f172a;}
+.mg-search:focus{border-color:#5b7cfa;background:#fff;}
+.mg-galwrap{flex:1 1 auto;min-height:0;overflow-y:auto;padding:18px 20px;}
+.mg-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:14px;}
+.mg-gal[hidden]{display:none;}
+.mg-item{background:#fff;border:1px solid #e8ebf3;border-radius:11px;padding:7px;cursor:pointer;display:flex;
+  flex-direction:column;gap:6px;transition:border-color .15s,box-shadow .15s,transform .1s;}
+.mg-item:hover{border-color:#5b7cfa;box-shadow:0 6px 16px rgba(37,99,235,.18);}
+.mg-item:active{transform:scale(.97);}
+.mg-thumb{aspect-ratio:1/1;border-radius:8px;background:#0f172a;background-size:cover;background-position:center;
+  display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.65);}
+.mg-thumb svg{width:28px;height:28px;}
+.mg-fn{font-size:.66rem;color:#64748b;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mg-empty{grid-column:1/-1;color:#94a3b8;font-size:.86rem;padding:30px;text-align:center;}
+"""
 
 
 def _media_gitem_html(kind, ref, prev, src, fn):
@@ -3102,8 +3145,8 @@ def _build_advisors_form(advisors, media_videos=None, media_images=None):
       <input type="text" class="mg-search" id="mg-search" placeholder="Buscar por nombre…">
     </div>
     <div class="mg-galwrap">
-      <div class="mg-gal" id="mg-gal-video">__GAL_V__</div>
-      <div class="mg-gal" id="mg-gal-image" hidden>__GAL_I__</div>
+      <div class="mg-gal" data-gal="video">__GAL_V__</div>
+      <div class="mg-gal" data-gal="image" hidden>__GAL_I__</div>
     </div>
   </div>
 </div>
@@ -3183,30 +3226,28 @@ dropEl.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' ')
 dropEl.addEventListener('drop', function(e){ if(dragEl) return; e.preventDefault(); e.stopPropagation(); dropEl.classList.remove('is-over');
   var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) addAdvisorFromFile(f); });
 /* ---- Selector de media existente de Shopify (o subir del PC) ---- */
-var mgModal=doc.getElementById('mg-modal'), mgSearch=doc.getElementById('mg-search');
-var mgTarget={mode:'',card:null}, modalOpen=false;
-/* Mientras el modal está abierto, el iframe pasa a pantalla completa (fixed, 100vw/100vh) para
-   que la ventana se vea grande y centrada y el fondo oscuro cubra toda la página, no solo la
-   sección de asesores. Al cerrar se restaura y swResize vuelve a ajustar el alto al contenido. */
-function setFrameFullscreen(on){ var fe=window.frameElement; if(!fe) return;
-  if(on){ fe.style.setProperty('position','fixed','important'); fe.style.setProperty('top','0','important');
-    fe.style.setProperty('left','0','important'); fe.style.setProperty('width','100vw','important');
-    fe.style.setProperty('height','100vh','important'); fe.style.setProperty('max-width','none','important');
-    fe.style.setProperty('z-index','2147483000','important'); }
-  else { ['position','top','left','width','height','max-width','z-index'].forEach(function(p){ fe.style.removeProperty(p); });
-    fe.style.height=''; } }
-function setMgTab(tab){ [].slice.call(doc.querySelectorAll('.mg-tab')).forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-mgtab')===tab); });
-  doc.getElementById('mg-gal-video').hidden=(tab!=='video'); doc.getElementById('mg-gal-image').hidden=(tab!=='image'); }
+var mgModal=doc.getElementById('mg-modal');
+var mgTarget={mode:'',card:null};
+/* El modal se monta en el documento PADRE para verse grande y centrado sobre TODA la página
+   (dentro del iframe quedaría recortado al alto del iframe). Se inyecta su CSS en el padre una
+   sola vez y se quita el modal anterior de este editor en cada re-render. */
+(function(){ try{ var PD=P.document;
+  if(!PD.getElementById('mg-css-av')){ var stc=PD.createElement('style'); stc.id='mg-css-av'; stc.textContent=__MGCSS__; PD.head.appendChild(stc); }
+  var prev=PD.querySelector('.mg-modal.mg-own-av'); if(prev&&prev!==mgModal) prev.remove();
+  mgModal.classList.add('mg-own-av'); PD.body.appendChild(mgModal);
+}catch(e){} })();
+var mgSearch=mgModal.querySelector('.mg-search');
+function setMgTab(tab){ [].slice.call(mgModal.querySelectorAll('.mg-tab')).forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-mgtab')===tab); });
+  var gv=mgModal.querySelector('[data-gal="video"]'), gi=mgModal.querySelector('[data-gal="image"]'); if(gv)gv.hidden=(tab!=='video'); if(gi)gi.hidden=(tab!=='image'); }
 function filterGallery(q){ q=(q||'').toLowerCase();
-  [].slice.call(doc.querySelectorAll('.mg-item')).forEach(function(it){ var fn=(it.getAttribute('data-fn')||'').toLowerCase(); it.style.display=(!q||fn.indexOf(q)!==-1)?'':'none'; }); }
-function openMediaModal(mode, card){ mgTarget={mode:mode,card:card}; mgSearch.value=''; filterGallery(''); setMgTab('video');
-  modalOpen=true; setFrameFullscreen(true); mgModal.classList.add('is-open'); setTimeout(function(){ try{mgSearch.focus();}catch(e){} },30); }
-function closeMediaModal(){ mgModal.classList.remove('is-open'); modalOpen=false; setFrameFullscreen(false); }
-doc.getElementById('mg-x').addEventListener('click', closeMediaModal);
+  [].slice.call(mgModal.querySelectorAll('.mg-item')).forEach(function(it){ var fn=(it.getAttribute('data-fn')||'').toLowerCase(); it.style.display=(!q||fn.indexOf(q)!==-1)?'':'none'; }); }
+function openMediaModal(mode, card){ mgTarget={mode:mode,card:card}; if(mgSearch) mgSearch.value=''; filterGallery(''); setMgTab('video'); mgModal.classList.add('is-open'); setTimeout(function(){ try{mgSearch.focus();}catch(e){} },30); }
+function closeMediaModal(){ mgModal.classList.remove('is-open'); }
+mgModal.querySelector('.mg-x').addEventListener('click', closeMediaModal);
 mgModal.addEventListener('click', function(e){ if(e.target===mgModal) closeMediaModal(); });
-[].slice.call(doc.querySelectorAll('.mg-tab')).forEach(function(b){ b.addEventListener('click', function(){ setMgTab(b.getAttribute('data-mgtab')); }); });
-mgSearch.addEventListener('input', function(){ filterGallery(mgSearch.value); });
-doc.getElementById('mg-up').addEventListener('click', function(){ upMode={op:(mgTarget.mode==='change'?'change':'add'), card:mgTarget.card}; closeMediaModal(); fileIn.value=''; fileIn.click(); });
+[].slice.call(mgModal.querySelectorAll('.mg-tab')).forEach(function(b){ b.addEventListener('click', function(){ setMgTab(b.getAttribute('data-mgtab')); }); });
+if(mgSearch) mgSearch.addEventListener('input', function(){ filterGallery(mgSearch.value); });
+mgModal.querySelector('.mg-up').addEventListener('click', function(){ upMode={op:(mgTarget.mode==='change'?'change':'add'), card:mgTarget.card}; closeMediaModal(); fileIn.value=''; fileIn.click(); });
 function applyExistingToCard(card, kind, ref, src, prev){
   var old=card.getAttribute('data-newkey'); if(old&&newFiles[old]){ delete newFiles[old]; }
   card.setAttribute('data-newkey','');
@@ -3222,7 +3263,7 @@ function addAdvisorFromExisting(kind, ref, src, prev){
   syncBlockIcons(); var nm=node.querySelector('.avc-name'); if(nm) nm.focus();
   node.scrollIntoView({block:'nearest'});
 }
-doc.querySelector('.mg-galwrap').addEventListener('click', function(e){
+mgModal.querySelector('.mg-galwrap').addEventListener('click', function(e){
   var it=e.target.closest?e.target.closest('.mg-item'):null; if(!it) return;
   var kind=it.getAttribute('data-kind'), ref=it.getAttribute('data-ref'),
       src=it.getAttribute('data-src'), prev=it.getAttribute('data-prev');
@@ -3264,14 +3305,14 @@ async function doSave(){
 saveBtn.addEventListener('click', doSave);
 syncBlockIcons(); updateSave();
 /* Auto-ajuste del alto del iframe */
-function swResize(){ try{ if(modalOpen) return; var el=doc.getElementById('av-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+6; var fe=window.frameElement; if(!fe)return;
+function swResize(){ try{ var el=doc.getElementById('av-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+6; var fe=window.frameElement; if(!fe)return;
   if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){ fe.style.setProperty('height', h+'px','important'); } }catch(e){} }
 setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,t); });
 })();
 </script></body></html>"""
     _html = (_html.replace("__CARDS__", _cards).replace("__DROP__", _drop)
              .replace("__TPL__", _tpl).replace("__GAL_V__", _gal_v).replace("__GAL_I__", _gal_i)
-             .replace("__ADDICON__", _add))
+             .replace("__ADDICON__", _add).replace("__MGCSS__", _json.dumps(_MG_CSS)))
     _n = len(advisors) + 1   # +1 por la tarjeta de «Agregar asesor»
     _rows = (_n + 3) // 4
     return _html, 120 + _rows * 300 + 70
