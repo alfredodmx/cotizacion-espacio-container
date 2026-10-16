@@ -232,6 +232,118 @@ def _lead_asunto_preview(tpl, formulario, nombre, email, whatsapp):
     return out.strip() or f"Nuevo lead — {_f}"
 
 
+# ── Correo de NUEVO POSTULANTE (Trabaja con nosotros): vista previa (celeste) ──
+# Igual que el correo de leads pero en CELESTE, para diferenciar las postulaciones de los 3
+# formularios de venta (naranjo). El correo real lo arma y envía el servidor de leads
+# (flask-shopify-brevo) leyendo la config postul_mail_* de notificaciones_config. Si cambias el
+# diseño del correo en el Flask, actualiza también este _postul_email_html.
+_POSTUL_CELESTE = "#0EA5E9"
+_POSTUL_CELESTE_D = "#0284C7"
+_POSTUL_ASUNTO_DEFAULT = "🧑‍🏭 Nuevo postulante — {cargo} · {nombre}"
+
+_POSTUL_SAMPLE = {
+    "nombre": "Camila Rojas", "email": "camila.rojas@gmail.com", "whatsapp": "+56 9 8765 4321",
+    "rut": "18.345.678-9", "comuna": "Colina", "cargo": "Operario de maestranza / soldador",
+    "duracion": "48s", "mensaje": "Tengo 5 años soldando estructuras metálicas y disponibilidad inmediata.",
+    "video": "https://res.cloudinary.com/demo/video/upload/postulacion.mp4",
+    "cv": "https://example.com/cv-camila.pdf",
+}
+
+
+def _postul_campos(d):
+    """[(etiqueta, valor)] con los datos del postulante (igual orden que el Flask)."""
+    g = lambda *ks: next((str(d.get(k) or "").strip() for k in ks if str(d.get(k) or "").strip()), "")
+    return [
+        ("Nombre", g("nombre")), ("Email", g("email")), ("WhatsApp", g("whatsapp")),
+        ("RUT", g("rut")), ("Comuna", g("comuna")), ("Cargo / área", g("cargo")),
+        ("Duración del video", g("duracion", "duración")),
+    ]
+
+
+def _postul_email_html(d):
+    """HTML del correo de postulante (réplica del diseño del Flask, en celeste) para la preview."""
+    import re as _re
+    C, CD, NAVY = _POSTUL_CELESTE, _POSTUL_CELESTE_D, _LEAD_NAVY
+    nombre = str(d.get("nombre") or "").strip()
+    _wa = _re.sub(r"[^\d]", "", str(d.get("whatsapp") or ""))
+    filas = ""
+    for etq, val in _postul_campos(d):
+        val = str(val or "").strip()
+        if not val and etq not in ("Nombre", "Email", "WhatsApp"):
+            continue
+        if etq == "WhatsApp" and _wa:
+            val_html = (f'<a href="https://wa.me/{_wa}" style="color:{CD};text-decoration:none;font-weight:700;">{_lead_esc(val)}</a>')
+        elif etq == "Email" and val:
+            val_html = (f'<a href="mailto:{_lead_esc(val)}" style="color:{CD};text-decoration:none;font-weight:700;">{_lead_esc(val)}</a>')
+        else:
+            val_html = _lead_esc(val or "—")
+        filas += (
+            '<tr>'
+            f'<td style="padding:12px 18px;border-bottom:1px solid #eef1f5;font-size:11px;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:.05em;color:#8a94a6;white-space:nowrap;vertical-align:top;">{_lead_esc(etq)}</td>'
+            f'<td style="padding:12px 18px;border-bottom:1px solid #eef1f5;font-size:15px;line-height:1.5;'
+            f'color:{NAVY};font-weight:600;">{val_html}</td>'
+            '</tr>')
+    _msg = str(d.get("mensaje") or "").strip()
+    if _msg:
+        filas += (
+            '<tr>'
+            f'<td style="padding:12px 18px;border-bottom:1px solid #eef1f5;font-size:11px;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:.05em;color:#8a94a6;white-space:nowrap;vertical-align:top;">Mensaje</td>'
+            f'<td style="padding:12px 18px;border-bottom:1px solid #eef1f5;font-size:14px;line-height:1.55;'
+            f'color:#475569;">{_lead_esc(_msg)}</td>'
+            '</tr>')
+    # Botones: Ver video (celeste) + Ver CV + Responder WhatsApp
+    _video = str(d.get("video") or "").strip()
+    _cv = str(d.get("cv") or "").strip()
+    botones = ""
+    if _video.startswith("http"):
+        botones += (f'<a href="{_lead_esc(_video)}" style="display:inline-block;background:{C};color:#fff;'
+                    f'text-decoration:none;font-weight:700;font-size:14px;padding:13px 26px;border-radius:8px;'
+                    f'margin:5px 5px;">▶ Ver video de presentación</a>')
+    if _cv.startswith("http"):
+        botones += (f'<a href="{_lead_esc(_cv)}" style="display:inline-block;background:#fff;color:{CD};'
+                    f'text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;'
+                    f'border:1.5px solid {C};margin:5px 5px;">📄 Ver CV</a>')
+    if _wa:
+        botones += (f'<a href="https://wa.me/{_wa}" style="display:inline-block;background:#25D366;color:#fff;'
+                    f'text-decoration:none;font-weight:700;font-size:14px;padding:13px 26px;border-radius:8px;'
+                    f'margin:5px 5px;">Responder por WhatsApp</a>')
+    _cta = (f'<tr><td colspan="2" style="padding:22px 18px 8px;text-align:center;">{botones}</td></tr>'
+            if botones else '')
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(24,34,48,.08);">
+        <tr><td style="background:{NAVY};padding:26px 24px;">
+          <span style="display:inline-block;background:rgba(14,165,233,.16);color:{C};font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:6px 12px;border-radius:999px;border:1px solid rgba(14,165,233,.55);">Nuevo postulante</span>
+          <h1 style="margin:14px 0 0;color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-.01em;">Nuevo postulante 🧑‍🏭</h1>
+          <p style="margin:6px 0 0;color:rgba(255,255,255,.6);font-size:13px;">Trabaja con nosotros · Espacio Container House</p>
+        </td></tr>
+        <tr><td style="padding:8px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{filas}{_cta}</table>
+        </td></tr>
+        <tr><td style="padding:16px 24px 24px;">
+          <p style="margin:0;color:#9aa4b2;font-size:12px;line-height:1.6;text-align:center;">
+            Revisa su postulación en el sistema: SITIO WEB → Postulaciones.
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+def _postul_asunto_preview(tpl, d):
+    out = str(tpl or _POSTUL_ASUNTO_DEFAULT)
+    for k, v in (("{nombre}", d.get("nombre") or ""), ("{cargo}", d.get("cargo") or ""),
+                 ("{email}", d.get("email") or ""), ("{whatsapp}", d.get("whatsapp") or "")):
+        out = out.replace(k, str(v))
+    return out.strip() or f"Nuevo postulante — {d.get('nombre') or ''}"
+
+
 # ── CSS de la pestaña ────────────────────────────────────────────────────────
 
 _CSS = """
@@ -717,3 +829,68 @@ def render_tab_notificaciones(supabase, **deps):
                 _lead_email_html(_fname, _sample['nombre'], _sample['email'],
                                  _sample['whatsapp'], _sample['np']),
                 height=540, scrolling=True)
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ── 7. Correo de nuevos POSTULANTES (Trabaja con nosotros) ───────────
+    st.markdown(f'<div class="ntf-sec">{_svg("send", 18, _POSTUL_CELESTE, mr=2)}Correo de nuevos postulantes (Trabaja con nosotros)</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="ntf-hint">{_svg("send", 13, "#94a3b8", mr=4)}Correo <b>celeste</b> que llega por cada persona que postula en el formulario «Trabaja con nosotros» '
+                '(con su video y su CV). Es independiente del correo de leads de venta, para diferenciarlos. Lo envía el servidor de leads leyendo ESTA configuración.</div>',
+                unsafe_allow_html=True)
+
+    _pm_enabled = str(_get_notif_config('postul_mail_enabled', '0')).strip().lower() in ('1', 'true', 'si', 'sí', 'yes', 'on')
+    _pm_to = _get_notif_config('postul_mail_to', '')
+    _pm_asunto = _get_notif_config('postul_mail_asunto', _POSTUL_ASUNTO_DEFAULT)
+
+    _en_pos = st.toggle("Enviar el correo de aviso por cada postulante nuevo", value=_pm_enabled, key="postul_mail_enabled_tgl")
+
+    st.markdown(_var_guide(['{nombre}', '{cargo}', '{email}', '{whatsapp}']), unsafe_allow_html=True)
+    _pos_asunto_inp = st.text_input("Asunto del correo", value=_pm_asunto, key="postul_mail_asunto_inp")
+
+    try:
+        _sys_users_pos = _fetch_users_notif()
+    except Exception:
+        _sys_users_pos = []
+    _sys_emails_pos = []
+    for _r in _ROOTS:
+        if _r.strip() and _r.strip().lower() not in _sys_emails_pos:
+            _sys_emails_pos.append(_r.strip().lower())
+    for _u in _sys_users_pos:
+        _e = (_u.get('email') or '').strip().lower()
+        if _e and _e not in _sys_emails_pos:
+            _sys_emails_pos.append(_e)
+    _current_pos = [e.strip().lower() for e in str(_pm_to).replace('\n', ',').replace(';', ',').split(',') if e.strip()]
+    _preselect_pos = [e for e in _current_pos if e in _sys_emails_pos]
+    _extra_pos = [e for e in _current_pos if e not in _sys_emails_pos]
+
+    _cpa, _cpb = st.columns(2)
+    with _cpa:
+        _sel_pos = st.multiselect("Destinatarios (usuarios del sistema)", options=_sys_emails_pos,
+                                  default=_preselect_pos, key="postul_mail_sel")
+    with _cpb:
+        _extra_pos_txt = st.text_area("Otros correos (uno por línea)", value="\n".join(_extra_pos),
+                                      height=120, key="postul_mail_extra", placeholder="rrhh@empresa.cl")
+
+    _dest_pos = []
+    for _e in list(_sel_pos) + [x.strip().lower() for x in _extra_pos_txt.replace(',', '\n').split('\n') if x.strip()]:
+        _e = _e.strip().lower()
+        if _e and _e not in _dest_pos:
+            _dest_pos.append(_e)
+    st.markdown(f'<div class="ntf-hint">{_svg("users", 13, "#94a3b8", mr=4)}'
+                f'{len(_dest_pos)} destinatario(s): {_lead_esc(", ".join(_dest_pos)) if _dest_pos else "—"}</div>',
+                unsafe_allow_html=True)
+
+    if st.button(":material/save: Guardar correo de postulaciones", key="btn_guardar_postul_mail", type="primary"):
+        _set_notif_config('postul_mail_enabled', '1' if _en_pos else '0')
+        _set_notif_config('postul_mail_to', ",".join(_dest_pos))
+        _set_notif_config('postul_mail_asunto', _pos_asunto_inp)
+        st.toast("Correo de postulaciones guardado", icon=":material/check_circle:")
+        st.rerun()
+
+    st.markdown(f'<div class="ntf-hint" style="margin-top:12px">{_svg("eye", 13, "#94a3b8", mr=4)}'
+                'Vista previa del diseño (datos de ejemplo)</div>', unsafe_allow_html=True)
+    with st.expander("Diseño — Nuevo postulante (celeste)", expanded=True):
+        _pos_asunto_prev = _postul_asunto_preview(_pos_asunto_inp, _POSTUL_SAMPLE)
+        st.markdown(f'<div style="font-size:0.78rem;color:#64748b;margin-bottom:6px;">'
+                    f'<b>Asunto:</b> {_lead_esc(_pos_asunto_prev)}</div>', unsafe_allow_html=True)
+        components.html(_postul_email_html(_POSTUL_SAMPLE), height=600, scrolling=True)
