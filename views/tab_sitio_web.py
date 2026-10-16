@@ -1987,12 +1987,18 @@ def render_tab_sitio_web(**kwargs):
 
     # ── Selector de vista: Modelos (por defecto) / Tabla / Reels HOME ──
     st.markdown(_SW_VISTA_CSS, unsafe_allow_html=True)
-    _vistas = ["Modelos", "Tabla", "Comparar", "Banner Hero", "WhatsApp", "Reels HOME"]
+    _vistas = ["Modelos", "Tabla", "Comparar", "Banner Hero", "WhatsApp", "Reels HOME", "Postulaciones"]
     _vicons = {"Modelos": ":material/grid_view:", "Tabla": ":material/table_rows:",
                "Comparar": ":material/compare_arrows:", "Banner Hero": ":material/wallpaper:",
-               "WhatsApp": ":material/chat:", "Reels HOME": ":material/movie:"}
+               "WhatsApp": ":material/chat:", "Reels HOME": ":material/movie:",
+               "Postulaciones": ":material/badge:"}
     _vista = st.radio("Vista", _vistas, index=0, key="sw_vista", horizontal=True,
                       label_visibility="collapsed", format_func=lambda v: f"{_vicons.get(v, '')} {v}")
+
+    # Modo "Postulaciones": fichas de los postulantes del formulario «Trabaja con nosotros».
+    if _vista == "Postulaciones":
+        _render_postulaciones()
+        return
 
     # Modo "Reels HOME": ver/editar los videos reels de la sección de Shopify (bloques del tema).
     if _vista == "Reels HOME":
@@ -3316,6 +3322,295 @@ setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,
     _n = len(advisors) + 1   # +1 por la tarjeta de «Agregar asesor»
     _rows = (_n + 3) // 4
     return _html, 120 + _rows * 300 + 70
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  POSTULACIONES — fichas de los postulantes del formulario «Trabaja con nosotros»
+#  Fuente: clientes de Shopify con la etiqueta/nota del formulario de postulación
+#  (la crea el liquid form-trabaja-con-nosotros nativamente al registrar el cliente).
+# ══════════════════════════════════════════════════════════════════════════════
+_POSTUL_FORM_NAME = "FORMULARIO TRABAJA CON NOSOTROS"
+_POSTUL_KEY = "trabaja con nosotros"
+
+
+def _postul_es(c, form_name=_POSTUL_FORM_NAME):
+    """¿Este cliente de Shopify es un postulante? (por etiqueta o por la nota del formulario)."""
+    _tags = str(c.get("tags") or "").lower()
+    _note = str(c.get("note") or "").lower()
+    _fn = str(form_name or "").lower()
+    return (_POSTUL_KEY in _tags) or (_POSTUL_KEY in _note) or (_fn and _fn in (_tags + " " + _note))
+
+
+def _postul_parse_note(note):
+    """Parsea la nota del postulante (clave: valor · clave: valor) a un dict (claves en minúscula)."""
+    _d = {}
+    for _seg in str(note or "").split(" · "):
+        _seg = _seg.strip()
+        if ":" in _seg:
+            _k, _v = _seg.split(":", 1)
+            _d[_k.strip().lower()] = _v.strip()
+    return _d
+
+
+def _postul_get(d, *keys):
+    for _k in keys:
+        _v = str(d.get(_k) or "").strip()
+        if _v:
+            return _v
+    return ""
+
+
+def _postul_fecha(iso):
+    """ISO de Shopify → 'dd mmm yyyy · HH:MM' en hora de Chile (aprox, defensivo)."""
+    try:
+        from datetime import datetime, timezone, timedelta
+        _s = str(iso or "").replace("Z", "+00:00")
+        _dt = datetime.fromisoformat(_s).astimezone(timezone(timedelta(hours=-3)))
+        _mes = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"][_dt.month - 1]
+        return f"{_dt.day:02d} {_mes} {_dt.year} · {_dt.hour:02d}:{_dt.minute:02d}"
+    except Exception:
+        return str(iso or "")[:16].replace("T", " ")
+
+
+def _postul_card_html(p):
+    """Una ficha de postulante (HTML). `p` ya trae los campos parseados y escapados listos."""
+    _ini = p["iniciales"]
+    _av = (f'<div class="pt-av" style="background-image:url(\'{p["foto"]}\')"></div>'
+           if p.get("foto") else f'<div class="pt-av pt-av--ini">{_ini}</div>')
+    _cargo = (f'<span class="pt-badge">{p["cargo"]}</span>' if p.get("cargo") else '')
+    # Filas de contacto
+    _rows = []
+    _ic_mail = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>'
+    _ic_wa = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.2-1.7-.8-2-.9-.3-.1-.5-.2-.6.2-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-1.7-.9-2.9-1.6-4-3.5-.3-.5.3-.5.8-1.6.1-.2 0-.4 0-.5 0-.1-.6-1.5-.8-2-.2-.5-.4-.5-.6-.5h-.5c-.2 0-.5.1-.7.3-1 .9-1.2 2.1-.4 3.5 1.4 2.5 2.7 3.6 5.2 4.7 1.8.7 2.4.7 3.3.5.5-.1 1.7-.7 1.9-1.4.2-.6.2-1.2.1-1.3-.1-.1-.3-.2-.6-.3z"/><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.4A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>'
+    _ic_pin = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>'
+    _ic_id = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="12" r="2.2"/><path d="M14 10h4M14 14h4"/></svg>'
+    if p.get("email"):
+        _rows.append(f'<a class="pt-row" href="mailto:{p["email"]}">{_ic_mail}<span>{p["email"]}</span></a>')
+    if p.get("wa"):
+        _rows.append(f'<a class="pt-row" href="https://wa.me/{p["wa"]}" target="_blank" rel="noopener">{_ic_wa}<span>{p["telefono"]}</span></a>')
+    if p.get("rut"):
+        _rows.append(f'<div class="pt-row">{_ic_id}<span>{p["rut"]}</span></div>')
+    if p.get("comuna"):
+        _rows.append(f'<div class="pt-row">{_ic_pin}<span>{p["comuna"]}</span></div>')
+    _rows_html = "".join(_rows)
+    _msg = (f'<p class="pt-msg">{p["mensaje"]}</p>' if p.get("mensaje") else '')
+    # Video
+    _ic_play = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'
+    if p.get("video_url"):
+        _video = (f'<div class="pt-video" data-pt-video>'
+                  f'<button type="button" class="pt-play" data-pt-playbtn>{_ic_play}<span>Ver video de presentación</span>'
+                  + (f'<em>{p["duracion"]}</em>' if p.get("duracion") else '') + '</button>'
+                  f'<video class="pt-vid" preload="none" playsinline controls src="{p["video_url"]}"></video></div>')
+    elif p.get("video_txt"):
+        _video = f'<div class="pt-video pt-video--nolink">{_ic_play}<span>{p["video_txt"]}</span></div>'
+    else:
+        _video = ''
+    # Acciones
+    _ic_doc = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>'
+    _ic_ext = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>'
+    _acts = []
+    if p.get("wa"):
+        _acts.append(f'<a class="pt-act pt-act--wa" href="https://wa.me/{p["wa"]}" target="_blank" rel="noopener">{_ic_wa}WhatsApp</a>')
+    if p.get("cv_url"):
+        _acts.append(f'<a class="pt-act" href="{p["cv_url"]}" target="_blank" rel="noopener">{_ic_doc}Ver CV</a>')
+    elif p.get("cv_txt"):
+        _acts.append(f'<span class="pt-act pt-act--off">{_ic_doc}CV en el sistema</span>')
+    if p.get("shopify_url"):
+        _acts.append(f'<a class="pt-act" href="{p["shopify_url"]}" target="_blank" rel="noopener">{_ic_ext}Shopify</a>')
+    _acts_html = f'<div class="pt-acts">{"".join(_acts)}</div>' if _acts else ''
+    _search = p["_search"]
+    return (
+        f'<article class="pt-card" data-pt-search="{_search}">'
+        '<div class="pt-head">'
+        f'{_av}'
+        '<div class="pt-head-main">'
+        f'<h3 class="pt-name">{p["nombre"]}</h3>'
+        f'<div class="pt-head-meta">{_cargo}<span class="pt-date">{p["fecha"]}</span></div>'
+        '</div></div>'
+        f'<div class="pt-rows">{_rows_html}</div>'
+        f'{_video}{_msg}{_acts_html}'
+        '</article>')
+
+
+def _render_postulaciones():
+    """Fichas de los postulantes del formulario «Trabaja con nosotros» (video + CV + datos)."""
+    _celeste = "#0EA5E9"
+    st.markdown(
+        "<style>"
+        ".st-key-sw_postul_refresh button{border:1px solid #e2e8f0!important;}"
+        "</style>", unsafe_allow_html=True)
+    _h1, _h2 = st.columns([5, 1.3], vertical_alignment="bottom")
+    with _h1:
+        st.markdown(
+            '<div style="font-family:Montserrat,sans-serif;font-weight:700;font-size:0.88rem;'
+            'letter-spacing:0.05em;text-transform:uppercase;color:#0f172a;display:flex;align-items:center;gap:8px;">'
+            f'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{_celeste}" stroke-width="2.1" '
+            'stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>'
+            '<circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+            'Postulaciones</div>', unsafe_allow_html=True)
+    with _h2:
+        if st.button("Actualizar", icon=":material/refresh:", key="sw_postul_refresh",
+                     use_container_width=True):
+            st.session_state.pop("sw_postul_clientes", None)
+            st.rerun()
+    st.caption("Postulantes que enviaron el formulario «Trabaja con nosotros» del sitio. Mira su "
+               "video de presentación, su CV y sus datos; contáctalos por WhatsApp o email.")
+
+    _cli = st.session_state.get("sw_postul_clientes")
+    if _cli is None:
+        with st.spinner("Buscando postulantes en Shopify…"):
+            _cli, _err = _shop.listar_clientes()
+        if _err and not _cli:
+            st.warning(f"No se pudieron cargar los postulantes desde Shopify. {_err}")
+            return
+        st.session_state["sw_postul_clientes"] = _cli or []
+        _cli = _cli or []
+
+    _admin = _shop.store_admin_url()
+    _post = []
+    for _c in _cli:
+        if not _postul_es(_c):
+            continue
+        _note = _c.get("note") or ""
+        _d = _postul_parse_note(_note)
+        _nombre = " ".join(x for x in (_c.get("first_name"), _c.get("last_name")) if x).strip() or \
+            str(_c.get("email") or "Postulante").strip()
+        _tel = _postul_get(_d, "teléfono", "telefono") or str(_c.get("phone") or "").strip()
+        import re as _re
+        _wa = _re.sub(r"[^\d]", "", _tel)
+        if _wa and not _wa.startswith("56") and len(_wa) == 9:
+            _wa = "56" + _wa
+        _video = _postul_get(_d, "video")
+        _cv = _postul_get(_d, "cv")
+        _ini = "".join(w[0] for w in _nombre.split()[:2]).upper() or "P"
+        _p = {
+            "nombre": _he(_nombre),
+            "email": _he(str(_c.get("email") or "").strip()),
+            "telefono": _he(_tel),
+            "wa": _wa,
+            "rut": _he(_postul_get(_d, "rut")),
+            "comuna": _he(_postul_get(_d, "comuna")),
+            "cargo": _he(_postul_get(_d, "cargo")),
+            "mensaje": _he(_postul_get(_d, "mensaje")),
+            "duracion": _he(_postul_get(_d, "duración", "duracion")),
+            "fecha": _he(_postul_fecha(_c.get("created_at"))),
+            "iniciales": _he(_ini),
+            "foto": "",
+            "shopify_url": (f"{_admin}/customers/{_c.get('id')}" if (_admin and _c.get("id")) else ""),
+            "_created": str(_c.get("created_at") or ""),
+        }
+        _p["video_url"] = _he(_video) if _video.startswith("http") else ""
+        _p["video_txt"] = "" if _video.startswith("http") else _he(_video)
+        _p["cv_url"] = _he(_cv) if _cv.startswith("http") else ""
+        _p["cv_txt"] = "" if _cv.startswith("http") else _he(_cv)
+        _p["_search"] = _he(" ".join([_nombre, str(_c.get("email") or ""), _tel,
+                                      _postul_get(_d, "rut"), _postul_get(_d, "comuna"),
+                                      _postul_get(_d, "cargo")]).lower())
+        _post.append(_p)
+
+    _post.sort(key=lambda x: x["_created"], reverse=True)
+
+    if not _post:
+        st.info("Aún no hay postulaciones. Cuando alguien envíe el formulario «Trabaja con nosotros» "
+                "del sitio, su ficha aparecerá aquí.", icon=":material/badge:")
+        return
+
+    _cards = "".join(_postul_card_html(p) for p in _post)
+    _html = '<meta charset="utf-8">' + _POSTUL_CSS + f"""<div id="pt-root">
+<div class="pt-bar">
+  <div class="pt-search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="text" id="pt-q" placeholder="Buscar por nombre, email, RUT, comuna o cargo…" autocomplete="off">
+  </div>
+  <span class="pt-count" id="pt-count">{len(_post)} postulante{'s' if len(_post) != 1 else ''}</span>
+</div>
+<div class="pt-grid" id="pt-grid">{_cards}</div>
+<p class="pt-empty" id="pt-empty" hidden>Ningún postulante coincide con tu búsqueda.</p>
+</div>
+<script>
+(function(){{
+  var doc=document, q=doc.getElementById('pt-q'), grid=doc.getElementById('pt-grid'),
+      cnt=doc.getElementById('pt-count'), empty=doc.getElementById('pt-empty');
+  var cards=[].slice.call(grid.querySelectorAll('.pt-card'));
+  function filt(){{ var v=(q.value||'').trim().toLowerCase(), n=0;
+    cards.forEach(function(c){{ var ok=!v||(c.getAttribute('data-pt-search')||'').indexOf(v)!==-1;
+      c.style.display=ok?'':'none'; if(ok)n++; }});
+    cnt.textContent=n+' postulante'+(n!==1?'s':''); empty.hidden=n!==0; }}
+  q.addEventListener('input', filt);
+  grid.addEventListener('click', function(e){{
+    var b=e.target.closest?e.target.closest('[data-pt-playbtn]'):null; if(!b) return;
+    var w=b.closest('[data-pt-video]'); if(!w) return;
+    w.classList.add('is-on'); var v=w.querySelector('.pt-vid');
+    if(v){{ try{{ v.play(); }}catch(_){{}} }}
+  }});
+  function swResize(){{ try{{ var el=doc.getElementById('pt-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+8;
+    var fe=window.frameElement; if(!fe)return;
+    if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){{ fe.style.setProperty('height',h+'px','important'); }} }}catch(_){{}} }}
+  setInterval(swResize,300); [0,200,600].forEach(function(t){{ setTimeout(swResize,t); }});
+}})();
+</script>"""
+    _rows = (len(_post) + 2) // 3
+    components.html(_html, height=min(240 + _rows * 430, 20000), scrolling=False)
+
+
+_POSTUL_CSS = """<style>
+*{box-sizing:border-box;} html,body{margin:0;font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;background:transparent;color:#0f172a;}
+#pt-root{padding:4px 2px 12px;}
+.pt-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 18px;}
+.pt-search{flex:1;min-width:220px;display:flex;align-items:center;gap:9px;background:#fff;border:1.5px solid #e2e8f0;
+  border-radius:11px;padding:10px 14px;box-shadow:0 1px 3px rgba(15,23,42,.04);}
+.pt-search svg{width:17px;height:17px;flex-shrink:0;}
+.pt-search input{flex:1;border:0;outline:0;font:inherit;font-size:.9rem;background:transparent;color:#0f172a;}
+.pt-count{font-family:Montserrat,sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;
+  color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;border-radius:999px;padding:6px 13px;white-space:nowrap;}
+.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;align-items:start;}
+.pt-card{background:#fff;border:1px solid #e8ebf3;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(15,23,42,.05);
+  display:flex;flex-direction:column;gap:13px;}
+.pt-head{display:flex;align-items:center;gap:13px;}
+.pt-av{width:52px;height:52px;border-radius:50%;flex-shrink:0;background-size:cover;background-position:center;
+  box-shadow:0 2px 8px rgba(14,165,233,.28);}
+.pt-av--ini{display:flex;align-items:center;justify-content:center;color:#fff;font-family:Montserrat,sans-serif;
+  font-weight:800;font-size:1.02rem;letter-spacing:.02em;background:linear-gradient(135deg,#38bdf8,#0284c7);}
+.pt-head-main{min-width:0;flex:1;}
+.pt-name{margin:0;font-family:Montserrat,sans-serif;font-weight:800;font-size:1.02rem;line-height:1.2;color:#0f172a;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pt-head-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px;}
+.pt-badge{font-family:Montserrat,sans-serif;font-weight:700;font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;
+  color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;border-radius:6px;padding:3px 8px;max-width:190px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pt-date{font-size:.72rem;color:#94a3b8;font-weight:600;white-space:nowrap;}
+.pt-rows{display:flex;flex-direction:column;gap:7px;}
+.pt-row{display:flex;align-items:center;gap:9px;font-size:.84rem;color:#334155;text-decoration:none;}
+a.pt-row:hover{color:#0284c7;}
+.pt-row svg{width:16px;height:16px;flex-shrink:0;color:#94a3b8;}
+.pt-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pt-msg{margin:0;font-size:.83rem;line-height:1.5;color:#475569;background:#f8fafc;border-left:3px solid #bae6fd;
+  border-radius:0 8px 8px 0;padding:9px 12px;}
+.pt-video{border-radius:12px;overflow:hidden;background:#0b1220;position:relative;}
+.pt-video--nolink{display:flex;align-items:center;gap:9px;padding:11px 14px;color:#94a3b8;font-size:.8rem;font-weight:600;background:#f1f5f9;}
+.pt-video--nolink svg{width:18px;height:18px;flex-shrink:0;color:#cbd5e1;}
+.pt-play{width:100%;border:0;cursor:pointer;display:flex;align-items:center;gap:10px;padding:13px 15px;
+  background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font:inherit;font-family:Montserrat,sans-serif;
+  font-weight:700;font-size:.78rem;letter-spacing:.02em;}
+.pt-play svg{width:18px;height:18px;flex-shrink:0;}
+.pt-play span{flex:1;text-align:left;}
+.pt-play em{font-style:normal;font-weight:600;opacity:.85;font-size:.72rem;background:rgba(255,255,255,.2);
+  padding:2px 8px;border-radius:999px;}
+.pt-play:hover{filter:brightness(1.07);}
+.pt-vid{display:none;width:100%;max-height:420px;background:#000;}
+.pt-video.is-on .pt-play{display:none;}
+.pt-video.is-on .pt-vid{display:block;}
+.pt-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;}
+.pt-act{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:700;text-decoration:none;
+  color:#334155;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:8px 12px;transition:all .15s;}
+.pt-act svg{width:15px;height:15px;}
+.pt-act:hover{border-color:#0ea5e9;color:#0284c7;background:#f0f9ff;}
+.pt-act--wa{color:#15803d;border-color:#bbf7d0;background:#f0fdf4;}
+.pt-act--wa:hover{border-color:#22c55e;background:#dcfce7;color:#15803d;}
+.pt-act--off{color:#94a3b8;cursor:default;}
+.pt-act--off:hover{border-color:#e2e8f0;color:#94a3b8;background:#fff;}
+.pt-empty{text-align:center;color:#94a3b8;font-size:.9rem;padding:40px;}
+</style>"""
 
 
 def _render_reels():
