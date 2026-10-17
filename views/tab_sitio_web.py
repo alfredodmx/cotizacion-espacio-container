@@ -3567,7 +3567,8 @@ def _render_postulaciones():
                                 _ext += 0 if _okf else 1
                             _eliminar_est(_cid)
                     if _okc:
-                        _msg = "Postulante eliminado."
+                        _msg = ("El postulante ya no estaba en Shopify; se quitó de la lista."
+                                if _errc else "Postulante eliminado.")
                         if _nf:
                             _msg += f" {_nf} archivo(s) borrados de Shopify."
                         if _ext:

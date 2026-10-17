@@ -86,6 +86,9 @@ def eliminar_cliente(customer_id) -> tuple:
         r = requests.delete(url, headers=headers, timeout=30)
         if r.status_code in (200, 204):
             return True, None
+        if r.status_code == 404:
+            # Ya no existe (p. ej. borrado a mano en Shopify) → borrar es idempotente: OK.
+            return True, "ya no existía en Shopify"
         return False, f"Shopify {r.status_code}: {r.text[:200]}"
     except Exception as e:
         return False, str(e)
