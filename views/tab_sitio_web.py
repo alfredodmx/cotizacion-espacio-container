@@ -3336,6 +3336,44 @@ _PT_ESTADOS = [("nuevo", "Nuevo", "#0ea5e9"), ("revisado", "Revisado", "#6366f1"
                ("contactado", "Contactado", "#16a34a"), ("descartado", "Descartado", "#64748b")]
 _PT_ESTADO_MAP = {k: (lbl, c) for k, lbl, c in _PT_ESTADOS}
 
+# Taxonomía de PUESTOS: cada tipo de cargo tiene color + ícono SVG minimalista (línea).
+# (clave, etiqueta, color, paths_svg, [palabras clave para clasificar el cargo escrito]).
+_PT_PUESTOS = [
+    ("maestranza", "Maestranza · Soldadura", "#f97316",
+     '<path d="M12 3c.2 2 1.9 2.8 1.9 4.6a1.9 1.9 0 0 1-3.8 0c0-.6.2-1.1.4-1.5-1.2 1-2.9 2.8-2.9 5.6A4.4 4.4 0 0 0 12 16.1a4.4 4.4 0 0 0 4.4-4.4c0-2.3-1.2-3.6-2.1-5"/><path d="M8.5 20h7"/>',
+     ["maestranz", "soldad", "metal", "estructur", "fierro", "corte"]),
+    ("instalacion", "Instalación · Montaje", "#3b82f6",
+     '<path d="M3 19h18"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/><path d="M9.5 8.8V6a2.5 2.5 0 0 1 5 0v2.8"/><path d="M12 8.8V13"/>',
+     ["instalac", "montaj", "terreno", "obra", "faena", "construc", "cuadrilla"]),
+    ("diseno", "Diseño · Proyectos", "#8b5cf6",
+     '<circle cx="12" cy="5" r="2.2"/><path d="M12 7.2 7.6 20M12 7.2 16.4 20"/><path d="M9.4 15h5.2"/>',
+     ["diseñ", "disen", "proyect", "arquitect", "dibuj", "render", "ingenier"]),
+    ("ventas", "Ventas · Atención", "#10b981",
+     '<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="12.5" width="3.6" height="6.2" rx="1.6"/><rect x="17.4" y="12.5" width="3.6" height="6.2" rx="1.6"/><path d="M19.2 18.7v.4a3 3 0 0 1-3 3H13"/>',
+     ["venta", "atenci", "client", "comercial", "asesor", "ejecutiv"]),
+    ("administracion", "Administración", "#6366f1",
+     '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7"/><path d="M3 12.5h18"/>',
+     ["administr", "contab", "finanz", "rrhh", "recursos human", "secretar", "oficina", "gestion"]),
+    ("logistica", "Logística · Bodega", "#14b8a6",
+     '<path d="M21 8.5 12 3.5 3 8.5l9 5 9-5Z"/><path d="M3 8.5v7l9 5 9-5v-7"/><path d="M12 13.5v7"/>',
+     ["logístic", "logistic", "bodega", "despach", "almac", "inventar", "reparto", "chofer", "conduc"]),
+]
+_PT_OTRO = ("otro", "Otra área", "#0ea5e9",
+            '<rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/>'
+            '<rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/>')
+_PT_ALL = ([{"key": k, "lbl": l, "color": c, "icon": i} for k, l, c, i, _kw in _PT_PUESTOS]
+           + [{"key": _PT_OTRO[0], "lbl": _PT_OTRO[1], "color": _PT_OTRO[2], "icon": _PT_OTRO[3]}])
+_PT_CAT_MAP = {cat["key"]: cat for cat in _PT_ALL}
+
+
+def _puesto_cat(cargo):
+    """Clasifica el cargo escrito en una categoría de puesto (color + ícono). → dict."""
+    _c = str(cargo or "").lower()
+    for k, l, c, i, kws in _PT_PUESTOS:
+        if any(w in _c for w in kws):
+            return {"key": k, "lbl": l, "color": c, "icon": i}
+    return {"key": _PT_OTRO[0], "lbl": _PT_OTRO[1], "color": _PT_OTRO[2], "icon": _PT_OTRO[3]}
+
 
 def _postul_es(c, form_name=_POSTUL_FORM_NAME):
     """¿Este cliente de Shopify es un postulante? (por etiqueta o por la nota del formulario)."""
@@ -3378,9 +3416,11 @@ def _postul_fecha(iso):
 
 def _postul_card_html(p):
     """Una ficha de postulante (HTML). `p` ya trae los campos parseados y escapados listos."""
-    _ini = p["iniciales"]
-    _av = (f'<div class="pt-av" style="background-image:url(\'{p["foto"]}\')"></div>'
-           if p.get("foto") else f'<div class="pt-av pt-av--ini">{_ini}</div>')
+    _cat = p.get("puesto") or _PT_CAT_MAP["otro"]
+    _pc = _cat["color"]
+    # Avatar = ícono SVG grande del puesto (minimalista) en círculo del color del puesto.
+    _av = (f'<div class="pt-av"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" '
+           f'stroke-linecap="round" stroke-linejoin="round">{_cat["icon"]}</svg></div>')
     _cargo = (f'<span class="pt-badge">{p["cargo"]}</span>' if p.get("cargo") else '')
     # Filas de contacto
     _rows = []
@@ -3457,7 +3497,8 @@ def _postul_card_html(p):
         '<button type="button" class="pt-cf-yes" data-pt-cf-yes>Sí, eliminar</button></div></div>'
         '</div>')
     return (
-        f'<article class="pt-card" data-pt-search="{_search}" data-pt-id="{p.get("id", "")}" '
+        f'<article class="pt-card" style="--pc:{_pc}" data-pt-search="{_search}" '
+        f'data-puesto="{_cat["key"]}" data-pt-id="{p.get("id", "")}" '
         f'data-estado="{_est}" data-clasif="{_clasif}">'
         '<div class="pt-head">'
         f'{_av}'
@@ -3624,6 +3665,7 @@ def _render_postulaciones():
         _p["cv_txt"] = "" if _cv.startswith("http") else _he(_cv)
         _est_row = _estados.get(str(_c.get("id") or "")) or {}
         _p["id"] = str(_c.get("id") or "")
+        _p["puesto"] = _puesto_cat(_postul_get(_d, "cargo"))
         _p["estado"] = str(_est_row.get("estado") or "nuevo")
         _p["clasif"] = int(_est_row.get("clasificacion") or 0)
         _p["nota"] = _he(str(_est_row.get("nota") or ""))
@@ -3641,7 +3683,32 @@ def _render_postulaciones():
         return
 
     _cards = "".join(_postul_card_html(p) for p in _post)
-    _html = ('<meta charset="utf-8">' + _POSTUL_CSS + f"""<div id="pt-root">
+    # Filtro por PUESTO: contar por categoría y armar los mosaicos (solo los presentes).
+    _pcounts = {}
+    for _pp in _post:
+        _k = _pp["puesto"]["key"]
+        _pcounts[_k] = _pcounts.get(_k, 0) + 1
+    _grid_ic = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+                'stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/>'
+                '<rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/>'
+                '<rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>')
+    _tiles = (f'<button type="button" class="pt-flt is-on" data-pt-flt="" style="--pc:#0ea5e9">'
+              f'<span class="pt-flt-ic">{_grid_ic}</span><span class="pt-flt-l">Todos</span>'
+              f'<span class="pt-flt-n">{len(_post)}</span></button>')
+    for _cat in _PT_ALL:
+        _cn = _pcounts.get(_cat["key"], 0)
+        if _cn == 0:
+            continue
+        _ic = (f'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+               f'stroke-linecap="round" stroke-linejoin="round">{_cat["icon"]}</svg>')
+        _tiles += (f'<button type="button" class="pt-flt" data-pt-flt="{_cat["key"]}" style="--pc:{_cat["color"]}">'
+                   f'<span class="pt-flt-ic">{_ic}</span><span class="pt-flt-l">{_he(_cat["lbl"])}</span>'
+                   f'<span class="pt-flt-n">{_cn}</span></button>')
+    _fonts = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
+              '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900'
+              '&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">')
+    _html = ('<meta charset="utf-8">' + _fonts + _POSTUL_CSS + f"""<div id="pt-root">
+<div class="pt-filters">{_tiles}</div>
 <div class="pt-bar">
   <div class="pt-search">
     <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -3653,7 +3720,7 @@ def _render_postulaciones():
 <p class="pt-empty" id="pt-empty" hidden>Ningún postulante coincide con tu búsqueda.</p>
 </div>""" + _POSTUL_JS)
     _rows = (len(_post) + 2) // 3
-    components.html(_html, height=min(240 + _rows * 500, 24000), scrolling=False)
+    components.html(_html, height=min(260 + _rows * 520, 24000), scrolling=False)
 
 
 _POSTUL_CSS = """<style>
@@ -3666,22 +3733,38 @@ _POSTUL_CSS = """<style>
 .pt-search input{flex:1;border:0;outline:0;font:inherit;font-size:.9rem;background:transparent;color:#0f172a;}
 .pt-count{font-family:Montserrat,sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;
   color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;border-radius:999px;padding:6px 13px;white-space:nowrap;}
-.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;align-items:start;}
-.pt-card{background:#fff;border:1px solid #e8ebf3;border-radius:16px;padding:18px;box-shadow:0 2px 12px rgba(15,23,42,.05);
-  display:flex;flex-direction:column;gap:13px;}
-.pt-head{display:flex;align-items:center;gap:13px;}
-.pt-av{width:52px;height:52px;border-radius:50%;flex-shrink:0;background-size:cover;background-position:center;
-  box-shadow:0 2px 8px rgba(14,165,233,.28);}
-.pt-av--ini{display:flex;align-items:center;justify-content:center;color:#fff;font-family:Montserrat,sans-serif;
-  font-weight:800;font-size:1.02rem;letter-spacing:.02em;background:linear-gradient(135deg,#38bdf8,#0284c7);}
+/* Mosaicos de filtro por puesto */
+.pt-filters{display:flex;flex-wrap:wrap;gap:10px;margin:2px 0 16px;}
+.pt-flt{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;background:#fff;
+  border:1.5px solid #e8ebf3;border-radius:14px;padding:13px 15px 11px;min-width:96px;transition:all .15s;position:relative;}
+.pt-flt-ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+  color:var(--pc);background:color-mix(in srgb,var(--pc) 13%,#fff);transition:all .15s;}
+.pt-flt-ic svg{width:27px;height:27px;}
+.pt-flt-l{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.68rem;color:#475569;text-align:center;line-height:1.2;max-width:104px;}
+.pt-flt-n{position:absolute;top:7px;right:10px;font-family:Montserrat,sans-serif;font-weight:800;font-size:.6rem;color:#b2bccb;}
+.pt-flt:hover{border-color:var(--pc);transform:translateY(-1px);}
+.pt-flt.is-on{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 7%,#fff);box-shadow:0 8px 18px color-mix(in srgb,var(--pc) 26%,transparent);}
+.pt-flt.is-on .pt-flt-ic{background:var(--pc);color:#fff;}
+.pt-flt.is-on .pt-flt-l,.pt-flt.is-on .pt-flt-n{color:var(--pc);}
+.pt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px;align-items:start;}
+.pt-card{background:#fff;border:1px solid #e8ebf3;border-radius:18px;padding:20px;box-shadow:0 4px 18px rgba(15,23,42,.06);
+  display:flex;flex-direction:column;gap:13px;position:relative;overflow:hidden;transition:box-shadow .18s,transform .18s;}
+.pt-card::before{content:'';position:absolute;top:0;left:0;right:0;height:5px;
+  background:linear-gradient(90deg,var(--pc),color-mix(in srgb,var(--pc) 52%,#fff));}
+.pt-card:hover{box-shadow:0 14px 34px color-mix(in srgb,var(--pc) 16%,rgba(15,23,42,.12));transform:translateY(-2px);}
+.pt-head{display:flex;align-items:center;gap:14px;margin-top:2px;}
+.pt-av{width:58px;height:58px;border-radius:17px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(140deg,var(--pc),color-mix(in srgb,var(--pc) 62%,#000));
+  box-shadow:0 8px 18px color-mix(in srgb,var(--pc) 42%,transparent);}
+.pt-av svg{width:31px;height:31px;}
 .pt-head-main{min-width:0;flex:1;}
-.pt-name{margin:0;font-family:Montserrat,sans-serif;font-weight:800;font-size:1.02rem;line-height:1.2;color:#0f172a;
+.pt-name{margin:0;font-family:Montserrat,sans-serif;font-weight:800;font-size:1.05rem;line-height:1.2;color:#0f172a;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pt-head-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px;}
-.pt-badge{font-family:Montserrat,sans-serif;font-weight:700;font-size:.62rem;letter-spacing:.04em;text-transform:uppercase;
-  color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;border-radius:6px;padding:3px 8px;max-width:190px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pt-date{font-size:.72rem;color:#94a3b8;font-weight:600;white-space:nowrap;}
+.pt-head-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:6px;}
+.pt-badge{font-family:Montserrat,sans-serif;font-weight:700;font-size:.62rem;letter-spacing:.03em;text-transform:uppercase;
+  color:var(--pc);background:color-mix(in srgb,var(--pc) 11%,#fff);border:1px solid color-mix(in srgb,var(--pc) 32%,#fff);
+  border-radius:6px;padding:3px 8px;line-height:1.3;}
+.pt-date{font-size:.72rem;color:#94a3b8;font-weight:600;white-space:nowrap;width:100%;}
 .pt-rows{display:flex;flex-direction:column;gap:7px;}
 .pt-row{display:flex;align-items:center;gap:9px;font-size:.84rem;color:#334155;text-decoration:none;}
 a.pt-row:hover{color:#0284c7;}
@@ -3689,18 +3772,20 @@ a.pt-row:hover{color:#0284c7;}
 .pt-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pt-msg{margin:0;font-size:.83rem;line-height:1.5;color:#475569;background:#f8fafc;border-left:3px solid #bae6fd;
   border-radius:0 8px 8px 0;padding:9px 12px;}
-.pt-video{border-radius:12px;overflow:hidden;background:#000;position:relative;line-height:0;}
+.pt-video{border-radius:13px;overflow:hidden;background:#05070b;position:relative;line-height:0;
+  border:1px solid #e8ebf3;}
 .pt-video--nolink{display:flex;align-items:center;gap:9px;padding:11px 14px;color:#94a3b8;font-size:.8rem;font-weight:600;background:#f1f5f9;line-height:1.4;}
 .pt-video--nolink svg{width:18px;height:18px;flex-shrink:0;color:#cbd5e1;}
-.pt-vid{display:block;width:100%;max-height:340px;background:#000;object-fit:contain;}
-.pt-dur{position:absolute;top:8px;right:8px;z-index:2;font-family:Montserrat,sans-serif;font-weight:700;
-  font-size:.66rem;letter-spacing:.02em;color:#fff;background:rgba(2,132,199,.85);padding:3px 9px;border-radius:999px;
-  pointer-events:none;}
+/* Video en su orientación REAL (panorámico se ve panorámico, vertical se ve vertical). */
+.pt-vid{display:block;width:100%;height:auto;background:#05070b;min-height:150px;}
+.pt-dur{position:absolute;top:9px;right:9px;z-index:2;font-family:Montserrat,sans-serif;font-weight:800;
+  font-size:.64rem;letter-spacing:.02em;color:#fff;background:var(--pc,#0ea5e9);padding:3px 9px;border-radius:999px;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);pointer-events:none;}
 .pt-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;}
 .pt-act{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:700;text-decoration:none;
   color:#334155;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:8px 12px;transition:all .15s;}
 .pt-act svg{width:15px;height:15px;}
-.pt-act:hover{border-color:#0ea5e9;color:#0284c7;background:#f0f9ff;}
+.pt-act:hover{border-color:var(--pc);color:var(--pc);background:color-mix(in srgb,var(--pc) 8%,#fff);}
 .pt-act--wa{color:#15803d;border-color:#bbf7d0;background:#f0fdf4;}
 .pt-act--wa:hover{border-color:#22c55e;background:#dcfce7;color:#15803d;}
 .pt-act--off{color:#94a3b8;cursor:default;}
@@ -3726,8 +3811,9 @@ a.pt-row:hover{color:#0284c7;}
   background:#f8fafc;outline:none;color:#0f172a;resize:vertical;min-height:40px;}
 .pt-nota:focus{border-color:#0ea5e9;background:#fff;}
 .pt-mbtns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
-.pt-save{font-family:'Plus Jakarta Sans';font-weight:700;font-size:.76rem;cursor:pointer;border:0;border-radius:9px;
-  padding:9px 16px;color:#fff;background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 6px 16px rgba(14,165,233,.3);}
+.pt-save{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:.76rem;cursor:pointer;border:0;border-radius:9px;
+  padding:9px 16px;color:#fff;background:linear-gradient(135deg,var(--pc),color-mix(in srgb,var(--pc) 68%,#000));
+  box-shadow:0 6px 16px color-mix(in srgb,var(--pc) 34%,transparent);}
 .pt-save:hover{filter:brightness(1.07);}
 .pt-del{display:inline-flex;align-items:center;gap:6px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:.74rem;
   cursor:pointer;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:9px;padding:8px 13px;margin-left:auto;transition:all .14s;}
@@ -3752,12 +3838,20 @@ _POSTUL_JS = r"""<script>
       cnt=doc.getElementById('pt-count'), empty=doc.getElementById('pt-empty');
   if(!grid) return;
   var cards=[].slice.call(grid.querySelectorAll('.pt-card'));
-  /* Búsqueda */
+  /* Búsqueda + filtro por puesto (combinados) */
+  var pf='';
   function filt(){ var v=(q&&q.value||'').trim().toLowerCase(), n=0;
-    cards.forEach(function(c){ var ok=!v||(c.getAttribute('data-pt-search')||'').indexOf(v)!==-1;
-      c.style.display=ok?'':'none'; if(ok)n++; });
+    cards.forEach(function(c){
+      var okS=!v||(c.getAttribute('data-pt-search')||'').indexOf(v)!==-1;
+      var okP=!pf||(c.getAttribute('data-puesto')||'')===pf;
+      var ok=okS&&okP; c.style.display=ok?'':'none'; if(ok)n++; });
     if(cnt) cnt.textContent=n+' postulante'+(n!==1?'s':''); if(empty) empty.hidden=n!==0; }
   if(q) q.addEventListener('input', filt);
+  var flts=[].slice.call(doc.querySelectorAll('.pt-flt'));
+  flts.forEach(function(b){ b.addEventListener('click', function(){
+    pf=b.getAttribute('data-pt-flt')||'';
+    flts.forEach(function(x){ x.classList.toggle('is-on', x===b); });
+    filt(); }); });
   /* Snapshot inicial para detectar cambios (mostrar «Guardar» solo si algo cambió) */
   cards.forEach(function(c){ c._e0=c.getAttribute('data-estado'); c._c0=c.getAttribute('data-clasif');
     var nt=c.querySelector('[data-pt-nota]'); c._n0=nt?nt.value:''; });
