@@ -3331,6 +3331,10 @@ setInterval(swResize,250); [0,200,500].forEach(function(t){ setTimeout(swResize,
 # ══════════════════════════════════════════════════════════════════════════════
 _POSTUL_FORM_NAME = "FORMULARIO TRABAJA CON NOSOTROS"
 _POSTUL_KEY = "trabaja con nosotros"
+# Estados del proceso (clave, etiqueta, color) para la gestión de cada postulante.
+_PT_ESTADOS = [("nuevo", "Nuevo", "#0ea5e9"), ("revisado", "Revisado", "#6366f1"),
+               ("contactado", "Contactado", "#16a34a"), ("descartado", "Descartado", "#64748b")]
+_PT_ESTADO_MAP = {k: (lbl, c) for k, lbl, c in _PT_ESTADOS}
 
 
 def _postul_es(c, form_name=_POSTUL_FORM_NAME):
@@ -3420,16 +3424,49 @@ def _postul_card_html(p):
         _acts.append(f'<a class="pt-act" href="{p["shopify_url"]}" target="_blank" rel="noopener">{_ic_ext}Shopify</a>')
     _acts_html = f'<div class="pt-acts">{"".join(_acts)}</div>' if _acts else ''
     _search = p["_search"]
+    # ── Gestión: estado, clasificación (estrellas) y nota interna ──
+    _est = p.get("estado") or "nuevo"
+    _clasif = int(p.get("clasif") or 0)
+    _elbl, _ecol = _PT_ESTADO_MAP.get(_est, _PT_ESTADO_MAP["nuevo"])
+    _ic_star = '<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 5.9 6.5.95-4.7 4.58 1.1 6.47L12 17.9 6.2 20.9l1.1-6.47L2.6 9.85l6.5-.95z"/></svg>'
+    _ic_trash = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '
+                 'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/>'
+                 '<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>')
+    _estbadge = f'<span class="pt-estbadge" data-pt-estbadge style="--ec:{_ecol}">{_elbl}</span>'
+    _ests = "".join(
+        f'<button type="button" class="pt-est{" is-on" if k == _est else ""}" data-pt-est="{k}" '
+        f'style="--ec:{c}">{lbl}</button>' for k, lbl, c in _PT_ESTADOS)
+    _stars = "".join(
+        f'<button type="button" class="pt-star{" is-on" if i <= _clasif else ""}" data-pt-star="{i}" '
+        f'aria-label="{i} estrellas">{_ic_star}</button>' for i in range(1, 6))
+    _manage = (
+        '<div class="pt-manage">'
+        '<div class="pt-mlbl">Estado del proceso</div>'
+        f'<div class="pt-ests">{_ests}</div>'
+        '<div class="pt-mrow"><span class="pt-mlbl">Clasificación</span>'
+        f'<div class="pt-stars" data-pt-stars>{_stars}</div></div>'
+        f'<textarea class="pt-nota ed-in" data-pt-nota rows="2" '
+        f'placeholder="Nota interna (solo la ve el equipo)…">{p.get("nota", "")}</textarea>'
+        '<div class="pt-mbtns">'
+        '<button type="button" class="pt-save" data-pt-save hidden>Guardar cambios</button>'
+        f'<button type="button" class="pt-del" data-pt-del>{_ic_trash}Eliminar postulante</button>'
+        '</div>'
+        '<div class="pt-confirm" data-pt-confirm hidden>'
+        '<span>¿Eliminar al postulante y sus archivos? No se puede deshacer.</span>'
+        '<div class="pt-confirm-btns"><button type="button" class="pt-cf-no" data-pt-cf-no>Cancelar</button>'
+        '<button type="button" class="pt-cf-yes" data-pt-cf-yes>Sí, eliminar</button></div></div>'
+        '</div>')
     return (
-        f'<article class="pt-card" data-pt-search="{_search}">'
+        f'<article class="pt-card" data-pt-search="{_search}" data-pt-id="{p.get("id", "")}" '
+        f'data-estado="{_est}" data-clasif="{_clasif}">'
         '<div class="pt-head">'
         f'{_av}'
         '<div class="pt-head-main">'
         f'<h3 class="pt-name">{p["nombre"]}</h3>'
-        f'<div class="pt-head-meta">{_cargo}<span class="pt-date">{p["fecha"]}</span></div>'
+        f'<div class="pt-head-meta">{_estbadge}{_cargo}<span class="pt-date">{p["fecha"]}</span></div>'
         '</div></div>'
         f'<div class="pt-rows">{_rows_html}</div>'
-        f'{_video}{_msg}{_acts_html}'
+        f'{_video}{_msg}{_acts_html}{_manage}'
         '</article>')
 
 
@@ -3466,6 +3503,81 @@ def _render_postulaciones():
             return
         st.session_state["sw_postul_clientes"] = _cli or []
         _cli = _cli or []
+
+    # Estado de gestión por postulante (estado / clasificación / nota). Defensivo (si no existe
+    # la tabla postulaciones_estado → {} y las fichas se ven igual, sin persistir).
+    from repositories.postulaciones_repo import (listar_estados as _listar_est,
+                                                 guardar_estado as _guardar_est,
+                                                 eliminar_estado as _eliminar_est)
+    _estados = _listar_est()
+    _actor = (st.session_state.get("usuario_email") or st.session_state.get("email")
+              or st.session_state.get("user_email") or "")
+
+    if st.session_state.pop("sw_postul_saved", False):
+        st.toast("Cambios guardados", icon=":material/check_circle:")
+    _pdel = st.session_state.pop("sw_postul_deleted", None)
+    if _pdel:
+        st.success(_pdel, icon=":material/check_circle:")
+
+    # Puente de gestión (guardar estado/clasificación/nota y eliminar). Input oculto sw_postcmd.
+    st.markdown("<style>.st-key-sw_postcmd{position:fixed!important;left:-9999px!important;"
+                "width:1px!important;height:1px!important;opacity:0!important;}</style>",
+                unsafe_allow_html=True)
+    if st.session_state.pop("_sw_reset_postcmd", False):
+        st.session_state["sw_postcmd"] = ""
+    _pc = st.text_input("postcmd", key="sw_postcmd", label_visibility="collapsed")
+    if _pc and "|" in _pc:
+        _pbody, _pts = _pc.rsplit("|", 1)
+        if _pts != st.session_state.get("sw_postcmd_ts"):
+            st.session_state["sw_postcmd_ts"] = _pts
+            st.session_state["_sw_reset_postcmd"] = True
+            import json as _json
+            try:
+                _pd = _json.loads(_pbody)
+            except Exception:
+                _pd = None
+            if _pd:
+                _act, _cid = _pd.get("action"), str(_pd.get("id") or "")
+                if _act == "save" and _cid:
+                    with st.spinner("Guardando…"):
+                        _ok = _guardar_est(_cid, _pd.get("estado") or "nuevo",
+                                           _pd.get("clasif") or 0, _pd.get("nota") or "", _actor)
+                    if _ok:
+                        st.session_state["sw_postul_saved"] = True
+                    else:
+                        st.session_state["sw_postul_deleted"] = ("No se pudo guardar. ¿Creaste la tabla "
+                            "postulaciones_estado en Supabase? (ver postulaciones_repo.py).")
+                    st.rerun()
+                elif _act == "delete" and _cid:
+                    with st.spinner("Eliminando postulante y sus archivos…"):
+                        _cobj = next((c for c in _cli if str(c.get("id")) == _cid), None)
+                        _urls = []
+                        if _cobj:
+                            _dd = _postul_parse_note(_cobj.get("note") or "")
+                            for _k in ("video", "cv"):
+                                _u = _postul_get(_dd, _k)
+                                if _u.startswith("http"):
+                                    _urls.append(_u)
+                        _okc, _errc = _shop.eliminar_cliente(_cid)
+                        _nf, _ext = 0, 0
+                        if _okc:
+                            for _u in _urls:
+                                _okf, _ = _shop.eliminar_archivo_por_url(_u)
+                                _nf += 1 if _okf else 0
+                                _ext += 0 if _okf else 1
+                            _eliminar_est(_cid)
+                    if _okc:
+                        _msg = "Postulante eliminado."
+                        if _nf:
+                            _msg += f" {_nf} archivo(s) borrados de Shopify."
+                        if _ext:
+                            _msg += (f" {_ext} archivo(s) están en un host externo (Cloudinary) "
+                                     "y no se pueden borrar desde aquí.")
+                        st.session_state["sw_postul_deleted"] = _msg
+                        st.session_state.pop("sw_postul_clientes", None)
+                    else:
+                        st.session_state["sw_postul_deleted"] = f"No se pudo eliminar: {_errc}"
+                    st.rerun()
 
     _admin = _shop.store_admin_url()
     _post = []
@@ -3509,9 +3621,15 @@ def _render_postulaciones():
         _p["video_txt"] = "" if _video.startswith("http") else _he(_video)
         _p["cv_url"] = _he(_cv) if _cv.startswith("http") else ""
         _p["cv_txt"] = "" if _cv.startswith("http") else _he(_cv)
+        _est_row = _estados.get(str(_c.get("id") or "")) or {}
+        _p["id"] = str(_c.get("id") or "")
+        _p["estado"] = str(_est_row.get("estado") or "nuevo")
+        _p["clasif"] = int(_est_row.get("clasificacion") or 0)
+        _p["nota"] = _he(str(_est_row.get("nota") or ""))
+        _est_lbl = (_PT_ESTADO_MAP.get(_p["estado"]) or ("", ""))[0]
         _p["_search"] = _he(" ".join([_nombre, _email, _tel,
                                       _postul_get(_d, "rut"), _postul_get(_d, "comuna"),
-                                      _postul_get(_d, "cargo")]).lower())
+                                      _postul_get(_d, "cargo"), _est_lbl]).lower())
         _post.append(_p)
 
     _post.sort(key=lambda x: x["_created"], reverse=True)
@@ -3522,7 +3640,7 @@ def _render_postulaciones():
         return
 
     _cards = "".join(_postul_card_html(p) for p in _post)
-    _html = '<meta charset="utf-8">' + _POSTUL_CSS + f"""<div id="pt-root">
+    _html = ('<meta charset="utf-8">' + _POSTUL_CSS + f"""<div id="pt-root">
 <div class="pt-bar">
   <div class="pt-search">
     <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -3532,25 +3650,9 @@ def _render_postulaciones():
 </div>
 <div class="pt-grid" id="pt-grid">{_cards}</div>
 <p class="pt-empty" id="pt-empty" hidden>Ningún postulante coincide con tu búsqueda.</p>
-</div>
-<script>
-(function(){{
-  var doc=document, q=doc.getElementById('pt-q'), grid=doc.getElementById('pt-grid'),
-      cnt=doc.getElementById('pt-count'), empty=doc.getElementById('pt-empty');
-  var cards=[].slice.call(grid.querySelectorAll('.pt-card'));
-  function filt(){{ var v=(q.value||'').trim().toLowerCase(), n=0;
-    cards.forEach(function(c){{ var ok=!v||(c.getAttribute('data-pt-search')||'').indexOf(v)!==-1;
-      c.style.display=ok?'':'none'; if(ok)n++; }});
-    cnt.textContent=n+' postulante'+(n!==1?'s':''); empty.hidden=n!==0; }}
-  q.addEventListener('input', filt);
-  function swResize(){{ try{{ var el=doc.getElementById('pt-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+8;
-    var fe=window.frameElement; if(!fe)return;
-    if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){{ fe.style.setProperty('height',h+'px','important'); }} }}catch(_){{}} }}
-  setInterval(swResize,300); [0,200,600].forEach(function(t){{ setTimeout(swResize,t); }});
-}})();
-</script>"""
+</div>""" + _POSTUL_JS)
     _rows = (len(_post) + 2) // 3
-    components.html(_html, height=min(240 + _rows * 430, 20000), scrolling=False)
+    components.html(_html, height=min(240 + _rows * 500, 24000), scrolling=False)
 
 
 _POSTUL_CSS = """<style>
@@ -3603,7 +3705,100 @@ a.pt-row:hover{color:#0284c7;}
 .pt-act--off{color:#94a3b8;cursor:default;}
 .pt-act--off:hover{border-color:#e2e8f0;color:#94a3b8;background:#fff;}
 .pt-empty{text-align:center;color:#94a3b8;font-size:.9rem;padding:40px;}
+.pt-estbadge{font-family:Montserrat,sans-serif;font-weight:800;font-size:.6rem;letter-spacing:.04em;text-transform:uppercase;
+  color:#fff;background:var(--ec,#0ea5e9);border-radius:6px;padding:3px 8px;white-space:nowrap;}
+/* ── Gestión (estado / clasificación / nota / eliminar) ── */
+.pt-manage{border-top:1px dashed #e2e8f0;margin-top:3px;padding-top:13px;display:flex;flex-direction:column;gap:9px;}
+.pt-mlbl{font-family:Montserrat,sans-serif;font-weight:700;font-size:.62rem;letter-spacing:.05em;text-transform:uppercase;color:#64748b;}
+.pt-ests{display:flex;flex-wrap:wrap;gap:6px;}
+.pt-est{font-family:'Plus Jakarta Sans';font-weight:700;font-size:.72rem;cursor:pointer;border:1.5px solid #e2e8f0;
+  background:#fff;color:#64748b;border-radius:999px;padding:6px 12px;transition:all .14s;}
+.pt-est:hover{border-color:var(--ec);color:var(--ec);}
+.pt-est.is-on{background:var(--ec);border-color:var(--ec);color:#fff;}
+.pt-mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.pt-stars{display:flex;gap:2px;}
+.pt-star{background:none;border:0;padding:1px;cursor:pointer;line-height:0;}
+.pt-star svg{width:21px;height:21px;fill:#e2e8f0;transition:fill .12s,transform .1s;}
+.pt-star:hover svg{transform:scale(1.14);}
+.pt-star.is-on svg{fill:#f59e0b;}
+.pt-nota{width:100%;border:1.5px solid #e2e8f0;border-radius:9px;padding:9px 11px;font-size:.82rem;font-family:inherit;
+  background:#f8fafc;outline:none;color:#0f172a;resize:vertical;min-height:40px;}
+.pt-nota:focus{border-color:#0ea5e9;background:#fff;}
+.pt-mbtns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.pt-save{font-family:'Plus Jakarta Sans';font-weight:700;font-size:.76rem;cursor:pointer;border:0;border-radius:9px;
+  padding:9px 16px;color:#fff;background:linear-gradient(135deg,#0ea5e9,#0284c7);box-shadow:0 6px 16px rgba(14,165,233,.3);}
+.pt-save:hover{filter:brightness(1.07);}
+.pt-del{display:inline-flex;align-items:center;gap:6px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:.74rem;
+  cursor:pointer;border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:9px;padding:8px 13px;margin-left:auto;transition:all .14s;}
+.pt-del svg{width:15px;height:15px;}
+.pt-del:hover{background:#fef2f2;border-color:#fca5a5;}
+.pt-confirm{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:11px 13px;display:flex;flex-direction:column;gap:9px;}
+.pt-confirm[hidden]{display:none;}
+.pt-confirm span{font-size:.78rem;color:#b91c1c;line-height:1.4;font-weight:600;}
+.pt-confirm-btns{display:flex;gap:8px;justify-content:flex-end;}
+.pt-cf-no{font-family:'Plus Jakarta Sans';font-weight:700;font-size:.74rem;cursor:pointer;border:1px solid #e2e8f0;
+  background:#fff;color:#475569;border-radius:8px;padding:8px 14px;}
+.pt-cf-yes{font-family:'Plus Jakarta Sans';font-weight:700;font-size:.74rem;cursor:pointer;border:0;
+  background:#dc2626;color:#fff;border-radius:8px;padding:8px 14px;}
+.pt-cf-yes:hover{background:#b91c1c;}
+.pt-card.is-saving,.pt-card.is-deleting{opacity:.55;pointer-events:none;}
 </style>"""
+
+
+_POSTUL_JS = r"""<script>
+(function(){
+  var doc=document, q=doc.getElementById('pt-q'), grid=doc.getElementById('pt-grid'),
+      cnt=doc.getElementById('pt-count'), empty=doc.getElementById('pt-empty');
+  if(!grid) return;
+  var cards=[].slice.call(grid.querySelectorAll('.pt-card'));
+  /* Búsqueda */
+  function filt(){ var v=(q&&q.value||'').trim().toLowerCase(), n=0;
+    cards.forEach(function(c){ var ok=!v||(c.getAttribute('data-pt-search')||'').indexOf(v)!==-1;
+      c.style.display=ok?'':'none'; if(ok)n++; });
+    if(cnt) cnt.textContent=n+' postulante'+(n!==1?'s':''); if(empty) empty.hidden=n!==0; }
+  if(q) q.addEventListener('input', filt);
+  /* Snapshot inicial para detectar cambios (mostrar «Guardar» solo si algo cambió) */
+  cards.forEach(function(c){ c._e0=c.getAttribute('data-estado'); c._c0=c.getAttribute('data-clasif');
+    var nt=c.querySelector('[data-pt-nota]'); c._n0=nt?nt.value:''; });
+  function dirty(c){ var nt=c.querySelector('[data-pt-nota]');
+    return c.getAttribute('data-estado')!==c._e0 || c.getAttribute('data-clasif')!==c._c0 || (nt?nt.value:'')!==c._n0; }
+  function upd(c){ var sv=c.querySelector('[data-pt-save]'); if(sv) sv.hidden=!dirty(c); }
+  function fire(obj){ try{ var W=window.parent, D=W.document, inp=D.querySelector('.st-key-sw_postcmd input'); if(!inp)return;
+    var setter=Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype,'value').set; inp.focus({preventScroll:true});
+    setter.call(inp, JSON.stringify(obj)+'|'+Date.now());
+    inp.dispatchEvent(new Event('input',{bubbles:true})); inp.dispatchEvent(new Event('change',{bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',keyCode:13,which:13,bubbles:true}));
+    inp.dispatchEvent(new FocusEvent('blur',{bubbles:true})); inp.dispatchEvent(new FocusEvent('focusout',{bubbles:true})); inp.blur(); }catch(_){} }
+  grid.addEventListener('click', function(e){
+    var c=e.target.closest?e.target.closest('.pt-card'):null; if(!c) return;
+    var est=e.target.closest('[data-pt-est]');
+    if(est){ var k=est.getAttribute('data-pt-est'); c.setAttribute('data-estado',k);
+      [].forEach.call(c.querySelectorAll('[data-pt-est]'),function(b){ b.classList.toggle('is-on',b===est); });
+      var bd=c.querySelector('[data-pt-estbadge]'); if(bd){ bd.textContent=est.textContent; bd.style.setProperty('--ec', est.style.getPropertyValue('--ec')); }
+      upd(c); return; }
+    var star=e.target.closest('[data-pt-star]');
+    if(star){ var n=parseInt(star.getAttribute('data-pt-star'),10)||0;
+      if(String(n)===c.getAttribute('data-clasif')) n=0;
+      c.setAttribute('data-clasif',String(n));
+      [].forEach.call(c.querySelectorAll('[data-pt-star]'),function(b){ b.classList.toggle('is-on',(parseInt(b.getAttribute('data-pt-star'),10)||0)<=n); });
+      upd(c); return; }
+    if(e.target.closest('[data-pt-save]')){ c.classList.add('is-saving'); var nt=c.querySelector('[data-pt-nota]');
+      fire({action:'save', id:c.getAttribute('data-pt-id'), estado:c.getAttribute('data-estado'),
+            clasif:parseInt(c.getAttribute('data-clasif'),10)||0, nota:nt?nt.value:''}); return; }
+    if(e.target.closest('[data-pt-del]')){ var cf=c.querySelector('[data-pt-confirm]'), mb=c.querySelector('.pt-mbtns');
+      if(cf) cf.hidden=false; if(mb) mb.style.display='none'; return; }
+    if(e.target.closest('[data-pt-cf-no]')){ var cf2=c.querySelector('[data-pt-confirm]'), mb2=c.querySelector('.pt-mbtns');
+      if(cf2) cf2.hidden=true; if(mb2) mb2.style.display=''; return; }
+    if(e.target.closest('[data-pt-cf-yes]')){ c.classList.add('is-deleting'); fire({action:'delete', id:c.getAttribute('data-pt-id')}); return; }
+  });
+  grid.addEventListener('input', function(e){ var c=e.target.closest?e.target.closest('.pt-card'):null; if(c) upd(c); });
+  function swResize(){ try{ var el=doc.getElementById('pt-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+8;
+    var fe=window.frameElement; if(!fe)return;
+    if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){ fe.style.setProperty('height',h+'px','important'); } }catch(_){} }
+  setInterval(swResize,300); [0,200,600].forEach(function(t){ setTimeout(swResize,t); });
+})();
+</script>"""
 
 
 def _render_reels():

@@ -73,6 +73,60 @@ def listar_clientes(max_paginas: int = 40) -> tuple:
         return out, str(e)
 
 
+def eliminar_cliente(customer_id) -> tuple:
+    """Elimina un cliente de Shopify (DELETE REST). Para borrar un postulante. (ok, error). DEFENSIVO."""
+    if not configurado():
+        return False, "Sin credenciales de Shopify."
+    if not customer_id:
+        return False, "Falta el id del cliente."
+    import requests
+    url = f"https://{_store()}/admin/api/{_version()}/customers/{customer_id}.json"
+    headers = {"X-Shopify-Access-Token": _token(), "Content-Type": "application/json"}
+    try:
+        r = requests.delete(url, headers=headers, timeout=30)
+        if r.status_code in (200, 204):
+            return True, None
+        return False, f"Shopify {r.status_code}: {r.text[:200]}"
+    except Exception as e:
+        return False, str(e)
+
+
+def eliminar_archivo_por_url(url) -> tuple:
+    """Best-effort: borra de Content>Files de Shopify el archivo cuya URL es `url` (video/CV del
+    postulante), buscándolo por nombre. Solo si está en Shopify (cdn.shopify). Si es externo
+    (Cloudinary u otro host) devuelve (False, 'externo') — no se puede borrar desde aquí.
+    Devuelve (ok, detalle)."""
+    _u = str(url or "").strip()
+    if not _u.lower().startswith("http"):
+        return False, "sin url"
+    if "cdn.shopify.com" not in _u and "/files/" not in _u:
+        return False, "externo"
+    _fn = _u.split("?", 1)[0].rsplit("/", 1)[-1]
+    try:
+        from urllib.parse import unquote
+        _fn = unquote(_fn)
+    except Exception:
+        pass
+    if not _fn:
+        return False, "sin nombre"
+    q = 'query($q:String){ files(first:5, query:$q){ nodes{ id __typename } } }'
+    data, err = _graphql(q, {"q": f"filename:{_fn}"})
+    if err:
+        return False, err
+    _nodes = (((data or {}).get("files") or {}).get("nodes")) or []
+    _gid = next((n.get("id") for n in _nodes if n and n.get("id")), "")
+    if not _gid:
+        return False, "no está en Shopify Files"
+    q2 = 'mutation($ids:[ID!]!){ fileDelete(fileIds:$ids){ deletedFileIds userErrors{ message } } }'
+    data2, err2 = _graphql(q2, {"ids": [_gid]})
+    if err2:
+        return False, err2
+    _ue = (((data2 or {}).get("fileDelete") or {}).get("userErrors")) or []
+    if _ue:
+        return False, "; ".join(e.get("message", "") for e in _ue)
+    return True, "borrado"
+
+
 def store_admin_url() -> str:
     """URL del admin de la tienda (para el botón 'Abrir en Shopify')."""
     return f"https://{_store()}/admin" if _store() else ""
