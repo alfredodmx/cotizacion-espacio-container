@@ -83,6 +83,8 @@ _NOTIF_ICONS = {
     "correo":       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
     "tarea":        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     "vencido":      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>',
+    "lead":         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>',
+    "postulante":   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2.2"/><path d="M5 17a3.5 3.5 0 0 1 8 0M15 9h3M15 13h3"/></svg>',
     "default":      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
 }
 
@@ -185,7 +187,8 @@ def _build_notif_html(email: str) -> str:
             _fecha = _htmlmod.escape(_fmt_notif_fecha(it.get("fecha")))
             _dot = '' if _leido else '<span class="_hdr_notif_dot"></span>'
             _bg = '' if _leido else ' style="background:#f5f8ff;"'
-            _rows += (f'<div class="_hdr_notif_it"{_bg}>'
+            _tp = _htmlmod.escape(str(it.get("tipo") or ""))
+            _rows += (f'<div class="_hdr_notif_it" data-tipo="{_tp}"{_bg}>'
                       f'<span class="_hdr_notif_ico">{_ico}</span>'
                       f'<div class="_hdr_notif_txt"><div class="_hdr_notif_t">{_tit}</div>'
                       + (f'<div class="_hdr_notif_d">{_det}</div>' if _det else '')
@@ -1738,7 +1741,7 @@ def render_layout():
     # 6. Botones ocultos (foto / contraseña) disparados desde el menú del avatar.
     # El logout NO usa botón: el menú navega a ?logout=1 (carga completa) porque un
     # st.rerun in-place crashea React al desmontar el árbol autenticado → body vacío.
-    _c0, _c_foto, _c_pwd, _c_notif, _c_ngo, _c_nref = st.columns([16, 1, 1, 1, 1, 1])
+    _c0, _c_foto, _c_pwd, _c_notif, _c_ngo, _c_ngp, _c_nref = st.columns([15, 1, 1, 1, 1, 1, 1])
     with _c_foto:
         if st.button("📷 Cambiar foto", key="btn_foto_hdr", use_container_width=True):
             st.session_state["_show_foto_dialog"] = True
@@ -1758,7 +1761,7 @@ def render_layout():
             _notif_data.clear()
             st.rerun()
     with _c_ngo:
-        # Botón oculto: click en una notificación → marca leídas + va a MIS CLIENTES CRM.
+        # Botón oculto: click en una notificación de LEAD/recordatorio → va a MIS CLIENTES CRM.
         if st.button("go", key="btn_notif_go", use_container_width=True):
             try:
                 from repositories.notificaciones_repo import marcar_leidas
@@ -1767,6 +1770,19 @@ def render_layout():
                 pass
             _notif_data.clear()
             st.session_state["nav_page"] = "clientes"
+            st.rerun()
+    with _c_ngp:
+        # Botón oculto: click en una notificación de POSTULANTE → va a SITIO WEB → Postulaciones
+        # (no es un lead de venta, por eso NO va al CRM).
+        if st.button("gop", key="btn_notif_go_postul", use_container_width=True):
+            try:
+                from repositories.notificaciones_repo import marcar_leidas
+                marcar_leidas(_email)
+            except Exception:
+                pass
+            _notif_data.clear()
+            st.session_state["nav_page"] = "sitio_web"
+            st.session_state["sw_vista"] = "Postulaciones"
             st.rerun()
     with _c_nref:
         # Botón oculto: el JS lo clickea desde el icono "Actualizar" del panel de la
@@ -1937,7 +1953,10 @@ def render_layout():
             var readBtn = t && t.closest ? t.closest('#_hdr_notif_read') : null;
             if (readBtn) { if (notifWrap) notifWrap.classList.remove('_open'); var _rb = D.querySelector('.st-key-btn_notif_read button'); if (_rb) _rb.click(); e.stopPropagation(); return; }
             var notifItem = t && t.closest ? t.closest('._hdr_notif_it') : null;
-            if (notifItem) { if (notifWrap) notifWrap.classList.remove('_open'); var _gb = D.querySelector('.st-key-btn_notif_go button'); if (_gb) _gb.click(); e.stopPropagation(); return; }
+            if (notifItem) { if (notifWrap) notifWrap.classList.remove('_open');
+                var _tp = notifItem.getAttribute('data-tipo') || '';
+                var _sel = (_tp === 'postulante') ? '.st-key-btn_notif_go_postul button' : '.st-key-btn_notif_go button';
+                var _gb = D.querySelector(_sel); if (_gb) _gb.click(); e.stopPropagation(); return; }
             if (notifWrap && notifWrap.classList.contains('_open') && !(t.closest && t.closest('#_hdr_notif_wrap'))) { notifWrap.classList.remove('_open'); }
             var mItem = t && t.closest ? t.closest('._hdr_menu_item') : null;
             if (mItem) {

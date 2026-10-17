@@ -3394,13 +3394,14 @@ def _postul_card_html(p):
         _rows.append(f'<div class="pt-row">{_ic_pin}<span>{p["comuna"]}</span></div>')
     _rows_html = "".join(_rows)
     _msg = (f'<p class="pt-msg">{p["mensaje"]}</p>' if p.get("mensaje") else '')
-    # Video
+    # Video — se muestra altiro el reproductor (primer cuadro como póster vía #t=), con los
+    # controles nativos: darle play y fullscreen directo, como en REELS.
     _ic_play = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'
     if p.get("video_url"):
-        _video = (f'<div class="pt-video" data-pt-video>'
-                  f'<button type="button" class="pt-play" data-pt-playbtn>{_ic_play}<span>Ver video de presentación</span>'
-                  + (f'<em>{p["duracion"]}</em>' if p.get("duracion") else '') + '</button>'
-                  f'<video class="pt-vid" preload="none" playsinline controls src="{p["video_url"]}"></video></div>')
+        _dur = (f'<span class="pt-dur">{p["duracion"]}</span>' if p.get("duracion") else '')
+        _video = (f'<div class="pt-video">'
+                  f'<video class="pt-vid" playsinline controls preload="metadata" '
+                  f'src="{p["video_url"]}#t=0.4"></video>{_dur}</div>')
     elif p.get("video_txt"):
         _video = f'<div class="pt-video pt-video--nolink">{_ic_play}<span>{p["video_txt"]}</span></div>'
     else:
@@ -3473,8 +3474,13 @@ def _render_postulaciones():
             continue
         _note = _c.get("note") or ""
         _d = _postul_parse_note(_note)
-        _nombre = " ".join(x for x in (_c.get("first_name"), _c.get("last_name")) if x).strip() or \
-            str(_c.get("email") or "Postulante").strip()
+        # Nombre y correo: 1º de la NOTA (el formulario los guarda ahí) y luego de los campos
+        # del cliente. Shopify REDACTA nombre/email/teléfono del cliente si la app no tiene
+        # acceso a «datos protegidos de clientes», por eso la nota es la fuente confiable.
+        _nombre = (_postul_get(_d, "nombre")
+                   or " ".join(x for x in (_c.get("first_name"), _c.get("last_name")) if x).strip()
+                   or _postul_get(_d, "email") or str(_c.get("email") or "").strip() or "Postulante")
+        _email = _postul_get(_d, "email") or str(_c.get("email") or "").strip()
         _tel = _postul_get(_d, "teléfono", "telefono") or str(_c.get("phone") or "").strip()
         import re as _re
         _wa = _re.sub(r"[^\d]", "", _tel)
@@ -3485,7 +3491,7 @@ def _render_postulaciones():
         _ini = "".join(w[0] for w in _nombre.split()[:2]).upper() or "P"
         _p = {
             "nombre": _he(_nombre),
-            "email": _he(str(_c.get("email") or "").strip()),
+            "email": _he(_email),
             "telefono": _he(_tel),
             "wa": _wa,
             "rut": _he(_postul_get(_d, "rut")),
@@ -3503,7 +3509,7 @@ def _render_postulaciones():
         _p["video_txt"] = "" if _video.startswith("http") else _he(_video)
         _p["cv_url"] = _he(_cv) if _cv.startswith("http") else ""
         _p["cv_txt"] = "" if _cv.startswith("http") else _he(_cv)
-        _p["_search"] = _he(" ".join([_nombre, str(_c.get("email") or ""), _tel,
+        _p["_search"] = _he(" ".join([_nombre, _email, _tel,
                                       _postul_get(_d, "rut"), _postul_get(_d, "comuna"),
                                       _postul_get(_d, "cargo")]).lower())
         _post.append(_p)
@@ -3537,12 +3543,6 @@ def _render_postulaciones():
       c.style.display=ok?'':'none'; if(ok)n++; }});
     cnt.textContent=n+' postulante'+(n!==1?'s':''); empty.hidden=n!==0; }}
   q.addEventListener('input', filt);
-  grid.addEventListener('click', function(e){{
-    var b=e.target.closest?e.target.closest('[data-pt-playbtn]'):null; if(!b) return;
-    var w=b.closest('[data-pt-video]'); if(!w) return;
-    w.classList.add('is-on'); var v=w.querySelector('.pt-vid');
-    if(v){{ try{{ v.play(); }}catch(_){{}} }}
-  }});
   function swResize(){{ try{{ var el=doc.getElementById('pt-root'); if(!el)return; var h=Math.ceil(el.offsetHeight)+8;
     var fe=window.frameElement; if(!fe)return;
     if(Math.abs((parseInt(fe.style.height,10)||0)-h)>3){{ fe.style.setProperty('height',h+'px','important'); }} }}catch(_){{}} }}
@@ -3586,20 +3586,13 @@ a.pt-row:hover{color:#0284c7;}
 .pt-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pt-msg{margin:0;font-size:.83rem;line-height:1.5;color:#475569;background:#f8fafc;border-left:3px solid #bae6fd;
   border-radius:0 8px 8px 0;padding:9px 12px;}
-.pt-video{border-radius:12px;overflow:hidden;background:#0b1220;position:relative;}
-.pt-video--nolink{display:flex;align-items:center;gap:9px;padding:11px 14px;color:#94a3b8;font-size:.8rem;font-weight:600;background:#f1f5f9;}
+.pt-video{border-radius:12px;overflow:hidden;background:#000;position:relative;line-height:0;}
+.pt-video--nolink{display:flex;align-items:center;gap:9px;padding:11px 14px;color:#94a3b8;font-size:.8rem;font-weight:600;background:#f1f5f9;line-height:1.4;}
 .pt-video--nolink svg{width:18px;height:18px;flex-shrink:0;color:#cbd5e1;}
-.pt-play{width:100%;border:0;cursor:pointer;display:flex;align-items:center;gap:10px;padding:13px 15px;
-  background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font:inherit;font-family:Montserrat,sans-serif;
-  font-weight:700;font-size:.78rem;letter-spacing:.02em;}
-.pt-play svg{width:18px;height:18px;flex-shrink:0;}
-.pt-play span{flex:1;text-align:left;}
-.pt-play em{font-style:normal;font-weight:600;opacity:.85;font-size:.72rem;background:rgba(255,255,255,.2);
-  padding:2px 8px;border-radius:999px;}
-.pt-play:hover{filter:brightness(1.07);}
-.pt-vid{display:none;width:100%;max-height:420px;background:#000;}
-.pt-video.is-on .pt-play{display:none;}
-.pt-video.is-on .pt-vid{display:block;}
+.pt-vid{display:block;width:100%;max-height:340px;background:#000;object-fit:contain;}
+.pt-dur{position:absolute;top:8px;right:8px;z-index:2;font-family:Montserrat,sans-serif;font-weight:700;
+  font-size:.66rem;letter-spacing:.02em;color:#fff;background:rgba(2,132,199,.85);padding:3px 9px;border-radius:999px;
+  pointer-events:none;}
 .pt-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px;}
 .pt-act{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:700;text-decoration:none;
   color:#334155;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:8px 12px;transition:all .15s;}
