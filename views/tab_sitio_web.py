@@ -3631,8 +3631,11 @@ def _render_postulaciones():
         # Nombre y correo: 1º de la NOTA (el formulario los guarda ahí) y luego de los campos
         # del cliente. Shopify REDACTA nombre/email/teléfono del cliente si la app no tiene
         # acceso a «datos protegidos de clientes», por eso la nota es la fuente confiable.
+        _addr = _c.get("default_address") or {}
         _nombre = (_postul_get(_d, "nombre")
                    or " ".join(x for x in (_c.get("first_name"), _c.get("last_name")) if x).strip()
+                   or " ".join(x for x in (_addr.get("first_name"), _addr.get("last_name")) if x).strip()
+                   or str(_addr.get("name") or "").strip()
                    or _postul_get(_d, "email") or str(_c.get("email") or "").strip() or "Postulante")
         _email = _postul_get(_d, "email") or str(_c.get("email") or "").strip()
         _tel = _postul_get(_d, "teléfono", "telefono") or str(_c.get("phone") or "").strip()
@@ -3681,6 +3684,24 @@ def _render_postulaciones():
         st.info("Aún no hay postulaciones. Cuando alguien envíe el formulario «Trabaja con nosotros» "
                 "del sitio, su ficha aparecerá aquí.", icon=":material/badge:")
         return
+
+    # Diagnóstico (solo si hace falta): ¿el nombre/correo vienen en la nota?
+    _sin_datos = [c for c in _cli if _postul_es(c)
+                  and not _postul_get(_postul_parse_note(c.get("note") or ""), "nombre")]
+    if _sin_datos:
+        with st.expander(f"⚠️ {len(_sin_datos)} postulante(s) sin nombre/correo — ¿por qué?"):
+            st.caption("Shopify **oculta (redacta)** el nombre, correo y teléfono del cliente si la app "
+                       "no tiene acceso a «datos protegidos de clientes». Por eso deben viajar en la NOTA. "
+                       "Para que los NUEVOS postulantes muestren nombre y correo, aplica el cambio del "
+                       "liquid (en `buildNote`, agregar `Nombre:` y `Email:`). Los postulantes de abajo se "
+                       "registraron antes de ese cambio. Esto es lo que trae cada nota:")
+            for _c in _sin_datos[:8]:
+                _d2 = _postul_parse_note(_c.get("note") or "")
+                _tn = "✅" if _postul_get(_d2, "nombre") else "❌"
+                _te = "✅" if _postul_get(_d2, "email") else "❌"
+                st.markdown(f"**id {_c.get('id')}** · {_tn} Nombre en nota · {_te} Email en nota · "
+                            f"campo email del cliente: `{_c.get('email') or '— (redactado por Shopify)'}`")
+                st.code(_c.get("note") or "(sin nota)")
 
     _cards = "".join(_postul_card_html(p) for p in _post)
     # Filtro por PUESTO: contar por categoría y armar los mosaicos (solo los presentes).
