@@ -1208,10 +1208,11 @@ def escribir_asset(theme_id, key, value) -> tuple:
 # Tipos de bloque que son "asesor" (según cómo esté nombrado el bloque en el tema).
 _ADV_TYPES = ("advisor", "asesor", "asesora")
 
-# Tope de bloques por sección en Shopify. La sección de reels mezcla reels + asesores,
-# así que ambos comparten este cupo. Si se sube max_blocks en el liquid de la sección,
-# subir también esta constante (máximo 50 en Shopify).
-_MAX_BLOQUES_SECCION = 30
+# Tope de bloques de la sección de reels (su `max_blocks` en el liquid). Reels + asesores
+# comparten este cupo. OJO: solo se usa como respaldo del mensaje de error si Shopify no
+# devolviera el número; el guardado NO impone este tope (Shopify es la autoridad). Debe
+# coincidir con `max_blocks` en sections/reels-carousel-advisors.liquid (máximo 50 en Shopify).
+_MAX_BLOQUES_SECCION = 50
 
 
 def _secciones_con_reels(obj):
