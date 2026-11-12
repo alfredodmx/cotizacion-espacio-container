@@ -1208,6 +1208,11 @@ def escribir_asset(theme_id, key, value) -> tuple:
 # Tipos de bloque que son "asesor" (según cómo esté nombrado el bloque en el tema).
 _ADV_TYPES = ("advisor", "asesor", "asesora")
 
+# Tope de bloques por sección en Shopify. La sección de reels mezcla reels + asesores,
+# así que ambos comparten este cupo. Si se sube max_blocks en el liquid de la sección,
+# subir también esta constante (máximo 50 en Shopify).
+_MAX_BLOQUES_SECCION = 30
+
 
 def _secciones_con_reels(obj):
     """TODAS las secciones que tienen algún bloque 'reel' en un JSON parseado. Devuelve
@@ -1654,6 +1659,24 @@ def guardar_advisors(theme_id, asset_key, section_id, advisors, advisor_type="ad
             _bkey = None
     _ok, _we = escribir_asset(theme_id, asset_key, _json.dumps(_obj, ensure_ascii=False))
     if not _ok:
+        # Shopify limita los bloques por sección y la de reels mezcla reels + asesores,
+        # así que ambos comparten ese cupo (los asesores BLOQUEADOS/disabled igual ocupan).
+        # No ponemos un tope propio (Shopify es la autoridad): solo traducimos su 422
+        # críptico a algo accionable, usando el número real que devuelve Shopify.
+        if _we and "Block count exceeds" in _we:
+            import re as _re2
+            _m = _re2.search(r"maximum of (\d+)", _we)
+            _mx = _m.group(1) if _m else str(_MAX_BLOQUES_SECCION)
+            _n_adv = len(_new_adv_ids); _n_reels = len(_no_adv)
+            _n_dis = sum(1 for _a in (advisors or []) if _a.get("disabled"))
+            _total = _n_adv + _n_reels
+            _msg = (f"La sección de reels llegó al máximo de bloques de Shopify ({_mx}). "
+                    f"Con este cambio tendría {_total} bloques: {_n_adv} asesores"
+                    + (f" ({_n_dis} bloqueados — igual ocupan cupo)" if _n_dis else "")
+                    + f" + {_n_reels} reels. Para hacer espacio: ELIMINA asesores o reels que "
+                    "no uses (bloquear NO libera cupo, hay que eliminarlos), o sube el límite "
+                    "de la sección (max_blocks en su liquid, hasta 50 en Shopify).")
+            return False, _msg, _bkey
         return False, _we, _bkey
     return True, None, _bkey
 
