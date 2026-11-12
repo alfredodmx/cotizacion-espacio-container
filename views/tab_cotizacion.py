@@ -1731,14 +1731,18 @@ function updateCards(){
 function toggleCF(cat){CF=(CF===cat)?'':cat;updateCards();filterRows();try{var u=new URL(window.parent.location.href);if(CF){u.searchParams.set('_pres_cat',CF);}else{u.searchParams.delete('_pres_cat');}window.parent.history.replaceState({},'',u.toString());}catch(e){}}
 var _iid='iid_'+Math.random().toString(36).slice(2,8);
 function attachCardListeners(){
+  // Enlaza el click IN-PLACE (sin cloneNode+replaceChild). Reemplazar los nodos
+  // de las cards corrompe el DOM que React controla: cuando el margen cambia el
+  // valor de las cards, React intenta actualizarlas sobre nodos ya reemplazados
+  // y lanza "removeChild: node is not a child". Bind directo + guard = sin crash.
   PD.querySelectorAll('._pres_card').forEach(function(el){
     if(el._pb===_iid)return;
     var cat=el.getAttribute('data-catpres');
     if(!cat)return;
-    var fresh=el.cloneNode(true);
-    if(el.parentNode)el.parentNode.replaceChild(fresh,el);
-    fresh._pb=_iid;
-    fresh.addEventListener('click',function(){toggleCF(cat);});
+    el._pb=_iid;
+    if(el._pbh){try{el.removeEventListener('click',el._pbh);}catch(e){}}
+    el._pbh=function(){toggleCF(el.getAttribute('data-catpres'));};
+    el.addEventListener('click',el._pbh);
   });
 }
 function injectTotal(){
