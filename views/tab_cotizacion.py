@@ -1278,8 +1278,12 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         _cards_css = (
             '<style>'
             "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&display=swap');"
-            '.pres-cards{display:flex;flex-direction:column;gap:5px;padding:4px 0 10px 0;}'
-            '.mosaic-row{display:flex;gap:5px;align-items:stretch;}'
+            # pres-cards es un contenedor flex-wrap (las cards fluyen y envuelven en
+            # filas). Las mosaic-row son display:contents → NO agrupan en el layout,
+            # así el reorden A-Z/Monto se hace con CSS `order` SIN mover nodos del DOM
+            # (mover nodos que React controla = crash removeChild al cambiar el margen).
+            '.pres-cards{display:flex;flex-direction:row;flex-wrap:wrap;gap:5px;padding:4px 0 10px 0;align-items:stretch;}'
+            '.mosaic-row{display:contents;}'
             '._pres_card{border-radius:7px;padding:7px 11px;min-width:135px;cursor:pointer;'
             'transition:background .13s,border .13s;box-sizing:border-box;'
             'display:flex;flex-direction:column;align-items:flex-start;}'
@@ -1360,20 +1364,14 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         import time as _t_ord
         components.html(
             "<script>(function(){var PD=window.parent.document,K='ec_ord_pres2';"
-            "function mk(){var r=PD.createElement('div');r.className='mosaic-row';return r;}"
+            # Reordena SOLO con CSS `order` (no mueve nodos del DOM que controla React).
+            # az → orden alfabético; monto → orden original (data-ord), limpiando order.
             "function layout(mode){var c=PD.querySelector('.pres-cards');if(!c)return false;"
             "var cs=[].slice.call(c.querySelectorAll('._pres_card'));if(!cs.length)return false;"
-            "if(mode==='az'){cs.sort(function(a,b){var x=(a.getAttribute('data-catpres')||'').toLowerCase(),"
+            "if(mode==='az'){var sorted=cs.slice().sort(function(a,b){var x=(a.getAttribute('data-catpres')||'').toLowerCase(),"
             "y=(b.getAttribute('data-catpres')||'').toLowerCase();return x<y?-1:x>y?1:0;});"
-            "var n=cs.length,nr=n<=4?1:(n<=10?2:3),per=Math.ceil(n/nr);c.innerHTML='';"
-            "for(var i=0;i<n;i+=per){var rw=mk();var sl=cs.slice(i,i+per),rmx=1;"
-            "sl.forEach(function(cd){var w=Math.pow((+cd.getAttribute('data-w'))||1,0.3);if(w>rmx)rmx=w;});"
-            "sl.forEach(function(cd){var g=Math.max(1,Math.round(Math.pow((+cd.getAttribute('data-w'))||1,0.3)/rmx*1000));"
-            "cd.style.flex=g+' '+g+' 0';cd.style.minWidth='';rw.appendChild(cd);});c.appendChild(rw);}}"
-            "else{cs.sort(function(a,b){return (+a.getAttribute('data-ord'))-(+b.getAttribute('data-ord'));});"
-            "c.innerHTML='';var cur=null,cri=null;cs.forEach(function(cd){var ri=cd.getAttribute('data-row');"
-            "if(ri!==cri){cur=mk();c.appendChild(cur);cri=ri;}var g=cd.getAttribute('data-grow')||'1';"
-            "cd.style.flex=g+' '+g+' 0';cd.style.minWidth='';cur.appendChild(cd);});}return true;}"
+            "sorted.forEach(function(cd,i){cd.style.order=i;});}"
+            "else{cs.forEach(function(cd){cd.style.order='';});}return true;}"
             "function apply(){var box=PD.getElementById('pres-ord');if(!box)return false;var m='az';"
             "try{m=window.parent.sessionStorage.getItem(K)||'az';}catch(e){}"
             "box.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===m);});"
