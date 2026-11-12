@@ -13,7 +13,8 @@ import streamlit.components.v1 as components
 from views.layout import render_page_header
 from datetime import datetime, timedelta
 from repositories.cotizaciones_repo import guardar_cotizacion, generar_numero_unico
-from services.cotizacion_service import aplicar_margen, calcular_estado_label
+from services.cotizacion_service import (aplicar_margen, aplicar_margen_item,
+                                         es_categoria_costo_fijo, calcular_estado_label)
 from utils.formato import formato_clp, calcular_hash_estado
 from utils.telefono import formatear_telefono, _validar_telefono_cliente
 from utils.rut import validar_rut, formatear_rut
@@ -282,7 +283,7 @@ def _construir_datos_guardar_simple():
     if carrito:
         df_c = pd.DataFrame(carrito); sb = df_c['Subtotal'].sum()
         mg = st.session_state.get('margen', 0)
-        sc = sum(i['Cantidad'] * aplicar_margen(i['Precio Unitario'], mg) for i in carrito) if (st.session_state.get('modo_admin') or (mg > 0 and st.session_state.get('es_supervisor'))) else sb
+        sc = sum(i['Cantidad'] * aplicar_margen_item(i['Precio Unitario'], mg, i.get('Categoria')) for i in carrito) if (st.session_state.get('modo_admin') or (mg > 0 and st.session_state.get('es_supervisor'))) else sb
         iva = sc * 0.19; tot = sc + iva
     else:
         sb = sc = iva = tot = 0
@@ -1218,12 +1219,24 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         _cat_filtro_activo = st.query_params.get('_pres_cat', '')
         _df_cat = pd.DataFrame(st.session_state.carrito)
+        # Las cards reflejan el MISMO margen que la tabla: con margen activo se
+        # recalcula el subtotal efectivo por ítem, salvo las categorías de costo
+        # fijo (SERVICIOS/VARIOS), que conservan su precio real sin margen.
+        _aplica_mg_cards = (st.session_state.modo_admin
+                            or (st.session_state.margen > 0 and st.session_state.get('es_supervisor')))
+        if _aplica_mg_cards:
+            _mg_cards = st.session_state.margen
+            _df_cat['_sub_efectivo'] = _df_cat.apply(
+                lambda r: r['Cantidad'] * aplicar_margen_item(r['Precio Unitario'], _mg_cards, r.get('Categoria')),
+                axis=1)
+        else:
+            _df_cat['_sub_efectivo'] = _df_cat['Subtotal']
         _cat_colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444',
                        '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
                        '#14b8a6','#eab308','#dc2626','#7c3aed','#0ea5e9']
         _cats_summary = (
             _df_cat.groupby('Categoria')
-            .agg(items=('Item', 'count'), cantidades=('Cantidad', 'sum'), subtotal=('Subtotal', 'sum'))
+            .agg(items=('Item', 'count'), cantidades=('Cantidad', 'sum'), subtotal=('_sub_efectivo', 'sum'))
             .reset_index().sort_values('Categoria')
         )
         # Preparar datos de categorías para el componente unificado
@@ -1237,6 +1250,7 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 'subtotal_raw': float(_crow['subtotal']),
                 'items': int(_crow['items']),
                 'cant': int(_crow['cantidades']),
+                'costo_fijo': es_categoria_costo_fijo(_crow['Categoria']),
             })
         # ── MOSAIC CARDS — anchos proporcionales al valor (2 filas si >4 categorías) ──
         def _hex_to_rgba(h, a):
@@ -1285,6 +1299,14 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             '.ec-ord-opt{border:none;background:transparent;font-family:"Montserrat",sans-serif;font-size:10.5px;'
             'font-weight:600;color:#64748b;border-radius:999px;padding:3px 10px;cursor:pointer;line-height:1.35;}'
             '.ec-ord-opt.on{background:#fff;color:#0f172a;font-weight:700;box-shadow:0 1px 2px rgba(15,23,42,.12);}'
+            # Cinta diagonal "Costo fijo" (esquina inf. derecha) para SERVICIOS/VARIOS
+            # (categorías sin margen). Va abajo para no tapar el monto de la card.
+            '.pres-fijo{position:relative;overflow:hidden;}'
+            '.pres-ribbon{position:absolute;width:104px;bottom:12px;right:-28px;transform:rotate(-45deg);'
+            'text-align:center;background:#475569;color:#fff;padding:3px 0;z-index:3;pointer-events:none;'
+            'font-family:"Montserrat",sans-serif;font-size:7px;font-weight:800;line-height:1.2;'
+            'text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;'
+            'box-shadow:0 -1px 3px rgba(15,23,42,.22);}'
             '</style>'
         )
         # Toggle Monto | A-Z (esquina superior derecha de las cards).
@@ -1312,13 +1334,17 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _grow = max(1, round((_c['subtotal_raw'] ** 0.3) / _row_max_p * 1000))
                 _ni = _c['items']; _nu = _c['cant']
                 _meta_txt = f"{_ni} {'ítem' if _ni==1 else 'ítems'} · {_nu} {'ud.' if _nu==1 else 'uds.'}"
+                _fijo = _c.get('costo_fijo')
+                _cls_fijo = ' pres-fijo' if _fijo else ''
+                _ribbon = '<div class="pres-ribbon">Costo fijo</div>' if _fijo else ''
                 # data-ord/data-row/data-grow → el toggle A-Z reordena moviendo los
                 # nodos (preserva los listeners de click) y Monto restaura el mosaico.
                 _cards_html_md += (
-                    f'<div class="_pres_card" data-catpres="{_dcat}" data-colorpres="{_col}"'
+                    f'<div class="_pres_card{_cls_fijo}" data-catpres="{_dcat}" data-colorpres="{_col}"'
                     f' data-ord="{_ord_i}" data-row="{_ri}" data-grow="{_grow}" data-w="{_c["subtotal_raw"]}"'
                     f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
                     f'flex:{_grow} {_grow} 0;">'
+                    f'{_ribbon}'
                     f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
                     f'<div class="pres-csub">{_c["sub"]}<span class="pres-civa">s/IVA</span></div>'
                     f'<div class="pres-cmeta">{_meta_txt}</div>'
@@ -1368,7 +1394,10 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
 
         if st.session_state.modo_admin or (st.session_state.margen > 0 and st.session_state.get('es_supervisor')):
             carrito_df_con_margen = carrito_df.copy()
-            carrito_df_con_margen["Precio Unitario"] = carrito_df_con_margen["Precio Unitario"].apply(lambda x: aplicar_margen(x, st.session_state.margen))
+            _mg_tbl = st.session_state.margen
+            # Margen por ítem: SERVICIOS/VARIOS (costo fijo) quedan a precio real.
+            carrito_df_con_margen["Precio Unitario"] = carrito_df_con_margen.apply(
+                lambda r: aplicar_margen_item(r["Precio Unitario"], _mg_tbl, r.get("Categoria")), axis=1)
             carrito_df_con_margen["Subtotal"] = carrito_df_con_margen["Cantidad"] * carrito_df_con_margen["Precio Unitario"]
             subtotal_general = carrito_df_con_margen["Subtotal"].sum()
         else:

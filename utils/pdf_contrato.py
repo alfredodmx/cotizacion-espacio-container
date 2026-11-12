@@ -15,6 +15,7 @@ from utils.formato import formato_clp
 
 # Re-export para que los views puedan importar generar_pdf_completo desde aquí
 from generators.pdf_cotizacion import generar_pdf_completo  # noqa: F401
+from services.cotizacion_service import aplicar_margen_item
 
 # QR del certificado electrónico de personería/vigencia del representante. Se carga
 # desde la raíz del repo (relativo al cwd, igual que logo.png). Acepta .png/.jpg/.jpeg.
@@ -588,9 +589,13 @@ def preparar_pdf_data(cotizacion):
     margen_c = cotizacion.get('config_margen', 0)
     if margen_c > 0:
         carrito_df_p = carrito_df_t.copy()
-        carrito_df_p["Precio Unitario"] = carrito_df_p["Precio Unitario"].apply(
-            lambda x: x * (1 + margen_c / 100)
-        )
+        if 'Categoria' in carrito_df_p.columns:
+            # Costos fijos (SERVICIOS/VARIOS) sin margen.
+            carrito_df_p["Precio Unitario"] = carrito_df_p.apply(
+                lambda r: aplicar_margen_item(r["Precio Unitario"], margen_c, r.get("Categoria")), axis=1)
+        else:
+            carrito_df_p["Precio Unitario"] = carrito_df_p["Precio Unitario"].apply(
+                lambda x: x * (1 + margen_c / 100))
         carrito_df_p["Subtotal"] = carrito_df_p["Cantidad"] * carrito_df_p["Precio Unitario"]
     else:
         carrito_df_p = carrito_df_t.copy()

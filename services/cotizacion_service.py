@@ -133,10 +133,31 @@ def aplicar_margen(precio_original: float, margen: float) -> float:
     return precio_original * (1 + margen / 100)
 
 
+# ── Costos fijos ──────────────────────────────────────────────────────────────
+# Categorías que SIEMPRE se cotizan a precio real: el margen NO las modifica, sin
+# importar el % aplicado. Son costos operativos internos (mano de obra, fletes,
+# arriendos, posventa, etc.). Se comparan en minúsculas y sin espacios al borde.
+CATEGORIAS_COSTO_FIJO = ('servicios', 'varios')
+
+
+def es_categoria_costo_fijo(categoria) -> bool:
+    """True si la categoría es de costo fijo (SERVICIOS/VARIOS) → el margen no la toca."""
+    return str(categoria if categoria is not None else '').strip().lower() in CATEGORIAS_COSTO_FIJO
+
+
+def aplicar_margen_item(precio_original: float, margen: float, categoria=None) -> float:
+    """Igual que aplicar_margen pero respeta los COSTOS FIJOS: si la categoría es
+    SERVICIOS/VARIOS devuelve el precio original intacto (sin margen)."""
+    if es_categoria_costo_fijo(categoria):
+        return precio_original
+    return aplicar_margen(precio_original, margen)
+
+
 def calcular_totales_con_margen(carrito: list, margen: float) -> tuple[float, float, float]:
-    """Retorna (subtotal_con_margen, iva, total)."""
+    """Retorna (subtotal_con_margen, iva, total). Los ítems de categorías de costo
+    fijo (SERVICIOS/VARIOS) se suman a precio real, sin margen."""
     subtotal = sum(
-        item["Cantidad"] * aplicar_margen(item["Precio Unitario"], margen)
+        item["Cantidad"] * aplicar_margen_item(item["Precio Unitario"], margen, item.get("Categoria"))
         for item in carrito
     )
     iva = subtotal * 0.19

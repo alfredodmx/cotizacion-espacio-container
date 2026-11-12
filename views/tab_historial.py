@@ -18,7 +18,7 @@ from repositories.cotizaciones_repo import (
 )
 from repositories.logs_repo import obtener_logs_ep
 from repositories.compras_repo import calcular_estado_compras
-from services.cotizacion_service import (crear_badge_estado, aplicar_margen,
+from services.cotizacion_service import (crear_badge_estado, aplicar_margen, aplicar_margen_item,
                                          calcular_estado_label, ESTADO_BADGE_COLORS)
 from generators.pdf_cotizacion import generar_pdf_completo, generar_pdf_cliente
 from generators.pdf_log import generar_pdf_log
@@ -496,7 +496,7 @@ def _construir_datos_guardar_simple():
     if carrito:
         df_c=pd.DataFrame(carrito); sb=df_c['Subtotal'].sum()
         mg=st.session_state.get('margen',0)
-        sc=sum(i['Cantidad']*aplicar_margen(i['Precio Unitario'],mg) for i in carrito) if (st.session_state.get('modo_admin') or mg>0) else sb
+        sc=sum(i['Cantidad']*aplicar_margen_item(i['Precio Unitario'],mg,i.get('Categoria')) for i in carrito) if (st.session_state.get('modo_admin') or mg>0) else sb
         iva=sc*0.19; tot=sc+iva
     else:
         sb=sc=iva=tot=0
@@ -2270,7 +2270,12 @@ var MAT_DATA = """ + _mat_data_json_map + """;
             _mg = cot.get('config_margen', 0)
             if _mg and _mg > 0:
                 _df = _df.copy()
-                _df["Precio Unitario"] = _df["Precio Unitario"].apply(lambda x: aplicar_margen(x, _mg))
+                if 'Categoria' in _df.columns:
+                    # Costos fijos (SERVICIOS/VARIOS) sin margen.
+                    _df["Precio Unitario"] = _df.apply(
+                        lambda r: aplicar_margen_item(r["Precio Unitario"], _mg, r.get("Categoria")), axis=1)
+                else:
+                    _df["Precio Unitario"] = _df["Precio Unitario"].apply(lambda x: aplicar_margen(x, _mg))
                 _df["Subtotal"] = _df["Cantidad"] * _df["Precio Unitario"]
             _sub = _df["Subtotal"].sum(); _iva = _sub * 0.19; _tot = _sub + _iva
             _dc = {
@@ -3361,7 +3366,12 @@ var MAT_DATA = """ + _mat_data_json_map + """;
                 margen_c = cotizacion.get('config_margen', 0)
                 if margen_c > 0:
                     carrito_df_p = carrito_df_t.copy()
-                    carrito_df_p["Precio Unitario"] = carrito_df_p["Precio Unitario"].apply(lambda x: aplicar_margen(x, margen_c))
+                    if 'Categoria' in carrito_df_p.columns:
+                        # Costos fijos (SERVICIOS/VARIOS) sin margen.
+                        carrito_df_p["Precio Unitario"] = carrito_df_p.apply(
+                            lambda r: aplicar_margen_item(r["Precio Unitario"], margen_c, r.get("Categoria")), axis=1)
+                    else:
+                        carrito_df_p["Precio Unitario"] = carrito_df_p["Precio Unitario"].apply(lambda x: aplicar_margen(x, margen_c))
                     carrito_df_p["Subtotal"] = carrito_df_p["Cantidad"] * carrito_df_p["Precio Unitario"]
                 else:
                     carrito_df_p = carrito_df_t.copy()
