@@ -1329,11 +1329,16 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
             _row_max_p = max((c['subtotal_raw'] ** 0.3 for c in _row), default=1) or 1
             _cards_html_md += '<div class="mosaic-row">'
             for _c in _row:
-                _is_act = (_c['cat'] == _cat_filtro_activo)
                 _col = _c['color']
-                _bg  = _hex_to_rgba(_col, 0.15) if _is_act else '#fff'
-                _brd = f'2px solid {_col}' if _is_act else f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
-                _tick = ' ✓' if _is_act else ''
+                # El resaltado del filtro activo + el ✓ los pone el CSS inyectado en
+                # el <head> del documento PADRE (ids _pres_actcss/_pres_ordcss), NO el
+                # JS tocando los nodos de la card. Streamlit renderiza este st.markdown
+                # con react-markdown (árbol de fibers), así que mutar textContent/style
+                # de las cards hace que React reconcilie sobre nodos cambiados y mezcle
+                # el texto en la card equivocada (valor → "Varios", cinta → otra cat).
+                # Por eso la card SIEMPRE sale en su estado base y el activo es CSS.
+                _bg  = '#fff'
+                _brd = f'1.5px solid {_hex_to_rgba(_col, 0.3)}'
                 _dcat = _c['cat'].replace('"', '&quot;')
                 _grow = max(1, round((_c['subtotal_raw'] ** 0.3) / _row_max_p * 1000))
                 _ni = _c['items']; _nu = _c['cant']
@@ -1341,15 +1346,15 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
                 _fijo = _c.get('costo_fijo')
                 _cls_fijo = ' pres-fijo' if _fijo else ''
                 _ribbon = '<div class="pres-ribbon">Costo fijo</div>' if _fijo else ''
-                # data-ord/data-row/data-grow → el toggle A-Z reordena moviendo los
-                # nodos (preserva los listeners de click) y Monto restaura el mosaico.
+                # data-ord/data-row/data-grow → el toggle A-Z reordena con `order`
+                # vía CSS inyectado (#_pres_ordcss), sin mover nodos del DOM.
                 _cards_html_md += (
                     f'<div class="_pres_card{_cls_fijo}" data-catpres="{_dcat}" data-colorpres="{_col}"'
                     f' data-ord="{_ord_i}" data-row="{_ri}" data-grow="{_grow}" data-w="{_c["subtotal_raw"]}"'
                     f' style="background:{_bg};border:{_brd};border-left:4px solid {_col};'
                     f'flex:{_grow} {_grow} 0;">'
                     f'{_ribbon}'
-                    f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}{_tick}</div>'
+                    f'<div class="pres-cname" style="color:{_col};">{_c["cat"]}</div>'
                     f'<div class="pres-csub">{_c["sub"]}<span class="pres-civa">s/IVA</span></div>'
                     f'<div class="pres-cmeta">{_meta_txt}</div>'
                     f'</div>'
@@ -1364,14 +1369,21 @@ def render_tab_cotizacion(supabase, supabase_admin, supa_url, supa_key, **deps):
         import time as _t_ord
         components.html(
             "<script>(function(){var PD=window.parent.document,K='ec_ord_pres2';"
-            # Reordena SOLO con CSS `order` (no mueve nodos del DOM que controla React).
-            # az → orden alfabético; monto → orden original (data-ord), limpiando order.
+            # Reordena con CSS `order` pero vía un <style> inyectado en el <head> del
+            # PADRE (#_pres_ordcss), NUNCA tocando el style de las cards: Streamlit las
+            # renderiza con react-markdown (fibers) y mutar sus nodos corrompe el árbol
+            # al reconciliar (valor/cinta terminan en la card equivocada).
+            # az → orden alfabético; monto → sin reglas (orden del DOM = mosaico).
+            "function _esc(s){return String(s).replace(/[\"\\\\]/g,'\\\\$&');}"
             "function layout(mode){var c=PD.querySelector('.pres-cards');if(!c)return false;"
             "var cs=[].slice.call(c.querySelectorAll('._pres_card'));if(!cs.length)return false;"
+            "var st=PD.getElementById('_pres_ordcss');"
+            "if(!st){st=PD.createElement('style');st.id='_pres_ordcss';(PD.head||PD.documentElement).appendChild(st);}"
             "if(mode==='az'){var sorted=cs.slice().sort(function(a,b){var x=(a.getAttribute('data-catpres')||'').toLowerCase(),"
             "y=(b.getAttribute('data-catpres')||'').toLowerCase();return x<y?-1:x>y?1:0;});"
-            "sorted.forEach(function(cd,i){cd.style.order=i;});}"
-            "else{cs.forEach(function(cd){cd.style.order='';});}return true;}"
+            "var css='';sorted.forEach(function(cd,i){css+='._pres_card[data-catpres=\"'+_esc(cd.getAttribute('data-catpres')||'')+'\"]{order:'+i+'!important;}';});"
+            "st.textContent=css;}"
+            "else{st.textContent='';}return true;}"
             "function apply(){var box=PD.getElementById('pres-ord');if(!box)return false;var m='az';"
             "try{m=window.parent.sessionStorage.getItem(K)||'az';}catch(e){}"
             "box.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-mode')===m);});"
@@ -1712,19 +1724,25 @@ function _ppDlCSV(){
   setTimeout(function(){ a.remove(); _P.URL.revokeObjectURL(url); },1500);
 }
 var _ppCsvB=document.getElementById("_pp_csvbtn"); if(_ppCsvB) _ppCsvB.onclick=_ppDlCSV;
+function _escCss(s){return String(s).replace(/["\\\\]/g,'\\\\$&');}
 function updateCards(){
-  PD.querySelectorAll('._pres_card').forEach(function(el){
-    var cat=el.getAttribute('data-catpres');
-    var color=el.getAttribute('data-colorpres');
-    if(!color)return;
-    var isAct=(cat===CF);
-    var r=parseInt(color.slice(1,3),16),g=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
-    el.style.background=isAct?'rgba('+r+','+g+','+b+',0.15)':'#fff';
-    el.style.border=isAct?('2px solid '+color):('1.5px solid rgba('+r+','+g+','+b+',0.3)');
-    el.style.borderLeft='4px solid '+color;
-    var nm=el.querySelector('.pres-cname');
-    if(nm)nm.textContent=cat+(isAct?' ✓':'');
-  });
+  // NO se tocan los nodos de las cards (Streamlit las renderiza con react-markdown
+  // = árbol de fibers; mutar su textContent/style hace que React reconcilie sobre
+  // nodos cambiados y mezcle el texto en la card equivocada: el valor mostraba
+  // "Varios"/"Servicios" y la cinta otra categoría). El resaltado del filtro activo
+  // y el ✓ se expresan con un <style> inyectado en el <head> del padre.
+  var st=PD.getElementById('_pres_actcss');
+  if(!st){st=PD.createElement('style');st.id='_pres_actcss';(PD.head||PD.documentElement).appendChild(st);}
+  if(!CF){st.textContent='';return;}
+  var card=null,cs=PD.querySelectorAll('._pres_card');
+  for(var i=0;i<cs.length;i++){if(cs[i].getAttribute('data-catpres')===CF){card=cs[i];break;}}
+  if(!card){st.textContent='';return;}
+  var color=card.getAttribute('data-colorpres')||'#6366f1';
+  var r=parseInt(color.slice(1,3),16),g=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
+  var sel='._pres_card[data-catpres="'+_escCss(CF)+'"]';
+  st.textContent=sel+'{background:rgba('+r+','+g+','+b+',0.15)!important;'
+    +'border:2px solid '+color+'!important;border-left:4px solid '+color+'!important;}'
+    +sel+' .pres-cname::after{content:" ✓";font-weight:800;}';
 }
 function toggleCF(cat){CF=(CF===cat)?'':cat;updateCards();filterRows();try{var u=new URL(window.parent.location.href);if(CF){u.searchParams.set('_pres_cat',CF);}else{u.searchParams.delete('_pres_cat');}window.parent.history.replaceState({},'',u.toString());}catch(e){}}
 var _iid='iid_'+Math.random().toString(36).slice(2,8);
